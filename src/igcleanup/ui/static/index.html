@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<title>Instagram Cleanup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/static/icon.png">
+<style>
+  /* ---- Themes: every color, font, and corner comes from these variables ---- */
+  :root, :root[data-theme="light"] {
+    --bg:#fafafa; --card:#ffffff; --fg:#222; --muted:#666; --line:#ddd;
+    --accent:#c13584; --accent-fg:#fff; --bar-bg:#eee; --input-bg:#fff;
+    --banner-bg:#fff4d6; --banner-line:#f0c36d; --ok:#2e9e5b;
+    --font:16px/1.4 system-ui, "Segoe UI", sans-serif; --radius:10px; --radius-sm:6px;
+    --heading-transform:none; --letter:0;
+  }
+  :root[data-theme="dark"] {
+    --bg:#15161a; --card:#1f2026; --fg:#ececf0; --muted:#9a9aa6; --line:#33353d;
+    --accent:#e0499a; --accent-fg:#fff; --bar-bg:#2a2b32; --input-bg:#15161a;
+    --banner-bg:#3a3020; --banner-line:#8a6d2b; --ok:#4cc27a;
+  }
+  :root[data-theme="neon"] {
+    --bg:#0b0f2a; --card:#111636; --fg:#e6e8ff; --muted:#8f95c9; --line:#2a3170;
+    --accent:#ff2d95; --accent-fg:#ffffff; --bar-bg:#1a2050; --input-bg:#0b0f2a;
+    --banner-bg:#2a1a40; --banner-line:#ff2d95; --ok:#39ff9c;
+    --font:15px/1.45 "Cascadia Mono", "Consolas", "JetBrains Mono", monospace; --radius:4px; --radius-sm:2px;
+    --heading-transform:uppercase; --letter:.06em;
+  }
+  :root[data-theme="phosphor"] {
+    --bg:#040804; --card:#0a120a; --fg:#c8ffc8; --muted:#5fb85f; --line:#1f4a1f;
+    --accent:#33ff33; --accent-fg:#031003; --bar-bg:#0f1f0f; --input-bg:#040804;
+    --banner-bg:#12240f; --banner-line:#33ff33; --ok:#33ff33;
+    --font:15px/1.45 "Cascadia Mono", "Consolas", "JetBrains Mono", monospace; --radius:2px; --radius-sm:2px;
+    --heading-transform:uppercase; --letter:.06em;
+  }
+
+  body { margin:0; font:var(--font); background:var(--bg); color:var(--fg); }
+  header { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 20px; border-bottom:1px solid var(--line); background:var(--card); }
+  header h1 { font-size:18px; margin:0; text-transform:var(--heading-transform); letter-spacing:var(--letter); }
+  header .actions { display:flex; gap:8px; }
+  h2, h3 { text-transform:var(--heading-transform); letter-spacing:var(--letter); }
+  main { max-width:900px; margin:0 auto; padding:24px 20px; }
+  section[data-view] { display:none; }
+  section[data-view].active { display:block; }
+  .big { display:block; width:100%; padding:18px; font:inherit; font-size:20px; margin:12px 0; border:0; border-radius:var(--radius); background:var(--accent); color:var(--accent-fg); cursor:pointer; }
+  .big.secondary { background:var(--card); color:var(--fg); border:1px solid var(--line); }
+  button.small { padding:6px 12px; font:inherit; font-size:14px; border-radius:var(--radius-sm); border:1px solid var(--line); background:var(--card); color:var(--fg); cursor:pointer; }
+  button.small.accent { background:var(--accent); color:var(--accent-fg); border:0; }
+  .bar { height:14px; background:var(--bar-bg); border-radius:7px; overflow:hidden; margin:12px 0; }
+  .bar > div { height:100%; background:var(--accent); width:0; transition:width .3s; }
+  .muted { color:var(--muted); }
+  .banner { background:var(--banner-bg); border:1px solid var(--banner-line); padding:10px 14px; border-radius:var(--radius-sm); margin-bottom:16px; }
+  .group { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); margin-bottom:16px; }
+  .group > summary { padding:12px 16px; cursor:pointer; font-weight:600; display:flex; justify-content:space-between; align-items:center; text-transform:var(--heading-transform); letter-spacing:var(--letter); }
+  .group .tools { display:flex; gap:8px; padding:0 16px 10px; align-items:center; }
+  input[type=search], input[type=number] { font:inherit; padding:6px 10px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--input-bg); color:var(--fg); }
+  .group input[type=search] { flex:1; }
+  .row { display:grid; grid-template-columns:24px 40px 1fr auto auto; gap:10px; align-items:center; padding:8px 16px; border-top:1px solid var(--line); }
+  .row img { width:40px; height:40px; border-radius:50%; background:var(--bar-bg); object-fit:cover; }
+  .row a { color:var(--fg); font-weight:600; text-decoration:none; }
+  .row .name { color:var(--muted); font-size:14px; }
+  .row .date { color:var(--muted); font-size:14px; white-space:nowrap; }
+  #tip { position:fixed; z-index:60; max-width:320px; padding:10px 12px; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:var(--radius-sm); box-shadow:0 6px 24px rgba(0,0,0,.25); font-size:14px; line-height:1.4; text-transform:none; letter-spacing:0; font-weight:400; }
+  .help { display:inline-block; width:18px; height:18px; line-height:18px; text-align:center; border-radius:50%; border:1px solid var(--muted); color:var(--muted); font-size:12px; margin-left:6px; cursor:help; font-weight:400; }
+  dialog { border:1px solid var(--line); border-radius:var(--radius); padding:24px; max-width:420px; background:var(--card); color:var(--fg); font:var(--font); }
+  dialog::backdrop { background:rgba(0,0,0,.45); }
+  dialog .actions { display:flex; gap:10px; justify-content:flex-end; margin-top:16px; }
+  label { display:block; margin:12px 0 4px; }
+  input[type=number] { width:120px; }
+  select { font:inherit; padding:6px 10px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--input-bg); color:var(--fg); }
+  .banner strong { color:var(--fg); }
+
+  /* ---- Finish screen ---- */
+  .results { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin:16px 0; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; }
+  .stat .n { font-size:32px; font-weight:700; color:var(--accent); }
+  .stat .l { color:var(--muted); font-size:14px; text-transform:var(--heading-transform); letter-spacing:var(--letter); }
+  #confetti { position:fixed; inset:0; pointer-events:none; z-index:50; }
+  .check { width:96px; height:96px; margin:8px auto 16px; }
+  .check circle { fill:none; stroke:var(--ok); stroke-width:5; stroke-dasharray:300; stroke-dashoffset:300; animation:draw .7s ease-out forwards; }
+  .check path { fill:none; stroke:var(--ok); stroke-width:6; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:80; stroke-dashoffset:80; animation:draw .5s .5s ease-out forwards; }
+  @keyframes draw { to { stroke-dashoffset:0; } }
+
+  /* ---- Welcome ---- */
+  .welcome p { font-size:17px; max-width:640px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Instagram Cleanup</h1>
+  <div class="actions">
+    <button class="small" id="theme" title="Switch the look">Theme: Light</button>
+    <button class="small" id="gear" title="Settings">&#9881; Settings</button>
+  </div>
+</header>
+<main>
+  <section data-view="terms" class="welcome">
+    <h2>Read this before you start</h2>
+    <div class="banner"><strong>This tool automates your Instagram account, which is against Instagram's Terms of Use.</strong></div>
+    <p>It drives a real browser to visit profiles and press Unfollow or Follow for you. Instagram's rules forbid automated access. Accounts that do this can be temporarily restricted or permanently disabled, and there is no way to guarantee that will not happen to yours.</p>
+    <p>The tool goes slowly and stops at a daily limit to keep that risk low, it never touches an account you did not tick, and every unfollow is written to a backup you can restore from. The risk is still yours.</p>
+    <p class="muted">The terms are at help.instagram.com/581066165581870. <button class="small" id="terms-open">Open them in the Instagram window</button></p>
+    <button class="big" id="terms-agree">I understand the risk and agree</button>
+    <button class="big secondary" id="terms-decline">Decline and close</button>
+  </section>
+
+  <section data-view="login">
+    <h2>Almost there</h2>
+    <p>Log in to Instagram in the window that just opened. This screen will move on by itself once you are in.</p>
+  </section>
+
+  <section data-view="welcome" class="welcome">
+    <h2>Welcome</h2>
+    <p><strong>What this does.</strong> It looks through everyone you follow on Instagram, finds the accounts that have not posted in over a year, and shows you the list. Nothing is unfollowed until you say so.</p>
+    <p><strong>Backups.</strong> Before any unfollowing starts, a backup of those accounts is saved. If you change your mind later, Settings has a Restore button that lets you follow them again.</p>
+    <p><strong>It takes a while, on purpose.</strong> Instagram blocks accounts that unfollow too many people too fast, so this tool works slowly and stops at about 100 a day. Leave it running, close it whenever you like, and it picks up where it left off. While it works, leave the Instagram window alone: the tool is using it.</p>
+    <button class="big" id="welcome-ok">Got it</button>
+  </section>
+
+  <section data-view="home">
+    <div id="home-banner" class="banner" hidden></div>
+    <div id="home-buttons"></div>
+    <p class="muted" id="home-note"></p>
+  </section>
+
+  <section data-view="progress">
+    <h2 id="progress-title"></h2>
+    <div class="bar"><div id="progress-fill"></div></div>
+    <p id="progress-text"></p>
+    <p id="progress-message" class="muted"></p>
+    <p id="progress-help" class="muted" hidden>Instagram blocks accounts that unfollow too fast, so this is spread out over days. You can close the app any time; it carries on next time you open it. Leave the Instagram window alone while it works.</p>
+    <div id="progress-buttons"></div>
+  </section>
+
+  <section data-view="finished">
+    <div id="finished-mark"></div>
+    <h2 id="finished-title"></h2>
+    <p id="finished-text" class="muted"></p>
+    <div class="results" id="finished-stats"></div>
+    <div id="finished-buttons"></div>
+  </section>
+
+  <section data-view="review">
+    <div id="stale-banner" class="banner" hidden>These results are more than 30 days old. Consider scanning again before unfollowing.</div>
+    <div id="unchecked-banner" class="banner" hidden></div>
+    <div id="groups"></div>
+    <button class="big" id="unfollow-selected">Unfollow selected</button>
+    <button class="big secondary" id="review-back">Back</button>
+  </section>
+
+  <section data-view="settings">
+    <h2>Settings</h2>
+    <label for="cap">Daily unfollow limit <span class="help" data-tip="How many unfollows (or re-follows) per day. Instagram blocks accounts that do too many; 100 is a safe number, lower is safer. Scanning is not limited by this. A change applies at the next unfollow, even mid-run.">?</span></label>
+    <input type="number" id="cap" min="1">
+    <label for="months">Treat as inactive after this many months without a post <span class="help" data-tip="An account whose newest post is older than this counts as inactive.">?</span></label>
+    <input type="number" id="months" min="1">
+    <label for="rescan-days">Re-check accounts scanned more than this many days ago <span class="help" data-tip="When you press Scan again, accounts checked more recently than this keep their result and your ticks; only older ones are looked at again.">?</span></label>
+    <input type="number" id="rescan-days" min="1">
+    <label for="speed">Speed <span class="help" data-tip="How long the tool waits between profile checks and between unfollows. Careful is the default. Faster settings make it more likely that Instagram notices and restricts the account.">?</span></label>
+    <select id="speed">
+      <option value="careful">Careful (recommended)</option>
+      <option value="faster">Faster</option>
+      <option value="fastest">Fastest</option>
+    </select>
+    <p class="muted" id="speed-detail"></p>
+    <div class="banner" id="speed-warning" hidden>Faster than Careful raises the chance that Instagram restricts or disables the account. Use it only if you accept that.</div>
+    <p><button class="big" id="save-settings">Save</button>
+    <button class="big secondary" id="cancel-settings">Cancel</button></p>
+    <h3>Restore from backup</h3>
+    <p class="muted">Each unfollow run saves a backup. Pick one to choose who to follow again.</p>
+    <div id="backups"></div>
+    <h3>Help</h3>
+    <button class="big secondary" id="show-welcome">How this works</button>
+    <h3>Start over</h3>
+    <p class="muted">Wipes the scan results and your keep list, for example to use a different Instagram account. Backups are kept.</p>
+    <button class="big secondary" id="start-over">Start over</button>
+  </section>
+
+  <section data-view="restore">
+    <h2 id="restore-title">Restore</h2>
+    <p class="muted">Untick anyone you do not want to follow again.</p>
+    <div class="group" id="restore-group">
+      <div class="tools">
+        <input type="search" placeholder="Search" id="restore-search">
+        <button class="small" id="restore-check-all">Check all</button>
+        <button class="small" id="restore-uncheck-all">Uncheck all</button>
+      </div>
+      <div class="rows" id="restore-rows"></div>
+    </div>
+    <button class="big" id="restore-selected">Follow selected again</button>
+    <button class="big secondary" id="restore-back">Back</button>
+  </section>
+</main>
+
+<canvas id="confetti" hidden></canvas>
+<div id="tip" hidden></div>
+
+<dialog id="ask">
+  <p id="ask-text"></p>
+  <div class="actions">
+    <button class="small" id="ask-no">Cancel</button>
+    <button class="small accent" id="ask-yes">OK</button>
+  </div>
+</dialog>
+
+<dialog id="confirm">
+  <h3>Ready to unfollow?</h3>
+  <p id="confirm-text"></p>
+  <div class="actions">
+    <button class="small" id="confirm-no">Cancel</button>
+    <button class="small accent" id="confirm-yes">Unfollow</button>
+  </div>
+</dialog>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
