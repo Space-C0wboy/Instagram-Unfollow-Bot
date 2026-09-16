@@ -5,6 +5,7 @@
 [![Version 1.0](https://img.shields.io/badge/version-1.0-green.svg)](https://github.com/Space-C0wboy/Instagram-Unfollow-Bot/releases/tag/v1.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-pytest-informational.svg)](#development)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-ffdd00.svg)](https://buymeacoffee.com/spacec0wboy)
 
 A small Windows desktop app that finds the Instagram accounts you follow that have
 **not posted in over a year**, shows you the list, and unfollows the ones you pick,
@@ -173,3 +174,5 @@ antivirus heuristics; allow the file if that happens.
 
 Open an issue on the [GitHub repository](https://github.com/Space-C0wboy/Instagram-Unfollow-Bot/issues).
 For questions about your Instagram account itself, contact Instagram.
+
+If this saved you an afternoon, you can [buy me a coffee](https://buymeacoffee.com/spacec0wboy).
