@@ -4,7 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
     "playwright>=1.47",
-    "beautifulsoup4>=4.12",
+    "beautifulsoup4>=4.15.0",
     "fastapi>=0.115",
     "uvicorn>=0.30",
     "winotify>=1.1; sys_platform == 'win32'",
