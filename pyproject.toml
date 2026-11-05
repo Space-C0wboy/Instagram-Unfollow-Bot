@@ -17,7 +17,7 @@ igcleanup = "igcleanup.main:main"
 dev = ["pytest>=9.2.0", "pytest-asyncio>=0.24", "httpx>=0.27", "pyinstaller>=6.22.3", "pillow>=13.0.0"]
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=84.2.1"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
