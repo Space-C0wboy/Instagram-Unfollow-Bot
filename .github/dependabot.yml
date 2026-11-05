@@ -15,6 +15,8 @@ updates:
       interval: "weekly"
       day: "thursday"
     open-pull-requests-limit: 5
+    # pyproject uses open >= ranges with no lock file, so Dependabot can't classify an update as
+    # minor/patch and update-types matches nothing; group by name instead. These PRs only raise floors.
     groups:
-      minor-and-patch:
-        update-types: ["minor", "patch"]
+      pip-floors:
+        patterns: ["*"]
