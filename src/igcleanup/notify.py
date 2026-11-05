@@ -1,4 +1,5 @@
 """Desktop notifications. A no-op anywhere winotify is unavailable."""
+
 import logging
 
 logger = logging.getLogger(__name__)

@@ -18,18 +18,25 @@ from tests.fake_driver import FakeDriver
 NOW = datetime(2026, 9, 14, 10, 0)
 
 
-FAST = Settings(action_delay_seconds=(0, 0), scan_delay_seconds=(0.02, 0.02),
-                scan_rest_seconds=(0, 0))
+FAST = Settings(
+    action_delay_seconds=(0, 0), scan_delay_seconds=(0.02, 0.02), scan_rest_seconds=(0, 0)
+)
 
 
 def make_ctx(tmp_path: Path, driver=None, logged_in=True) -> AppContext:
     settings_path = tmp_path / "settings.json"
     save_settings(settings_path, FAST)
     ctx = AppContext(
-        conn=connect(":memory:"), driver=driver or FakeDriver(), settings_path=settings_path,
+        conn=connect(":memory:"),
+        driver=driver or FakeDriver(),
+        settings_path=settings_path,
         settings=FAST,
-        backups_dir=tmp_path / "backups", runner=JobRunner(), bus=ProgressBus(),
-        login_ready=asyncio.Event(), now=lambda: NOW, today=lambda: NOW.date(),
+        backups_dir=tmp_path / "backups",
+        runner=JobRunner(),
+        bus=ProgressBus(),
+        login_ready=asyncio.Event(),
+        now=lambda: NOW,
+        today=lambda: NOW.date(),
     )
     if logged_in:
         ctx.login_ready.set()
@@ -42,6 +49,7 @@ def client_factory(tmp_path):
         ctx = make_ctx(tmp_path, driver, logged_in)
         app = create_app(ctx)
         return AsyncClient(transport=ASGITransport(app=app), base_url="http://t"), ctx
+
     return _make
 
 
@@ -53,13 +61,20 @@ async def test_state_before_anything(client_factory):
     assert body["active_job"] is None
     assert body["latest_scan"] is None
     assert body["account_count"] == 0
-    assert body["settings"] == {"daily_action_cap": 100, "inactivity_months": 12, "welcome_seen": False,
-                                "rescan_after_days": 30, "speed": "careful"}
+    assert body["settings"] == {
+        "daily_action_cap": 100,
+        "inactivity_months": 12,
+        "welcome_seen": False,
+        "rescan_after_days": 30,
+        "speed": "careful",
+    }
 
 
 async def test_scan_start_runs_to_done_and_review_groups(client_factory):
-    driver = FakeDriver(following=[("old", "O"), ("gone", "G")],
-                        profiles={"old": Posted(date(2024, 1, 1), 2, "pic"), "gone": Gone()})
+    driver = FakeDriver(
+        following=[("old", "O"), ("gone", "G")],
+        profiles={"old": Posted(date(2024, 1, 1), 2, "pic"), "gone": Gone()},
+    )
     client, ctx = client_factory(driver)
     r = await client.post("/api/scan/start", json={"rescan": False})
     assert r.status_code == 200
@@ -80,8 +95,7 @@ async def test_scan_refused_when_not_logged_in(client_factory):
 
 
 async def test_selection_and_unfollow_flow(client_factory, tmp_path):
-    driver = FakeDriver(following=[("a", "A"), ("b", "B")],
-                        profiles={"a": Gone(), "b": Gone()})
+    driver = FakeDriver(following=[("a", "A"), ("b", "B")], profiles={"a": Gone(), "b": Gone()})
     client, ctx = client_factory(driver)
     await client.post("/api/scan/start", json={"rescan": False})
     await ctx.runner.wait()
@@ -107,8 +121,14 @@ async def test_settings_round_trip_and_validation(client_factory):
     r = await client.put("/api/settings", json={"daily_action_cap": 50, "inactivity_months": 6})
     assert r.status_code == 200
     got = (await client.get("/api/settings")).json()
-    assert {k: got[k] for k in ("daily_action_cap", "inactivity_months", "rescan_after_days", "speed")} == {
-        "daily_action_cap": 50, "inactivity_months": 6, "rescan_after_days": 30, "speed": "careful"}
+    assert {
+        k: got[k] for k in ("daily_action_cap", "inactivity_months", "rescan_after_days", "speed")
+    } == {
+        "daily_action_cap": 50,
+        "inactivity_months": 6,
+        "rescan_after_days": 30,
+        "speed": "careful",
+    }
     assert set(got["speed_presets"]) == {"careful", "faster", "fastest"}
     assert ctx.settings.daily_action_cap == 50
     r = await client.put("/api/settings", json={"daily_action_cap": 0, "inactivity_months": 6})
@@ -120,10 +140,15 @@ async def test_backups_list_and_restore_start(client_factory, tmp_path):
     ctx.backups_dir.mkdir()
     (ctx.backups_dir / "unfollow-backup-2026-09-01-0900.csv").write_text(
         "username,profile_url,display_name,last_post_date,status\n"
-        "z,https://www.instagram.com/z/,Z,,gone\n", encoding="utf-8")
+        "z,https://www.instagram.com/z/,Z,,gone\n",
+        encoding="utf-8",
+    )
     assert (await client.get("/api/backups")).json() == [
-        {"name": "unfollow-backup-2026-09-01-0900.csv", "count": 1}]
-    r = await client.post("/api/restore/start", json={"name": "unfollow-backup-2026-09-01-0900.csv"})
+        {"name": "unfollow-backup-2026-09-01-0900.csv", "count": 1}
+    ]
+    r = await client.post(
+        "/api/restore/start", json={"name": "unfollow-backup-2026-09-01-0900.csv"}
+    )
     assert r.status_code == 200
     await ctx.runner.wait()
     assert ctx.driver.calls == [("follow", "z")]
@@ -240,19 +265,26 @@ async def test_backup_rows_and_selective_restore(client_factory):
     client, ctx = client_factory()
     ctx.backups_dir.mkdir()
     (ctx.backups_dir / "unfollow-backup-2026-09-01-0900.csv").write_text(
-        "\n".join([
-            "username,profile_url,display_name,last_post_date,status",
-            "a,https://www.instagram.com/a/,A,2024-01-01,inactive",
-            "b,https://www.instagram.com/b/,B,,gone",
-            "c,https://www.instagram.com/c/,C,2024-01-01,inactive",
-        ]) + "\n", encoding="utf-8")
+        "\n".join(
+            [
+                "username,profile_url,display_name,last_post_date,status",
+                "a,https://www.instagram.com/a/,A,2024-01-01,inactive",
+                "b,https://www.instagram.com/b/,B,,gone",
+                "c,https://www.instagram.com/c/,C,2024-01-01,inactive",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     rows = (await client.get("/api/backups/unfollow-backup-2026-09-01-0900.csv")).json()["rows"]
     assert [r["username"] for r in rows] == ["a", "b", "c"]
     assert rows[1]["status"] == "gone"
     assert (await client.get("/api/backups/nope.csv")).status_code == 404
 
-    r = await client.post("/api/restore/start",
-                          json={"name": "unfollow-backup-2026-09-01-0900.csv", "usernames": ["c", "a"]})
+    r = await client.post(
+        "/api/restore/start",
+        json={"name": "unfollow-backup-2026-09-01-0900.csv", "usernames": ["c", "a"]},
+    )
     assert r.status_code == 200 and r.json()["total"] == 2
     await ctx.runner.wait()
     assert ctx.driver.calls == [("follow", "a"), ("follow", "c")]
@@ -260,11 +292,14 @@ async def test_backup_rows_and_selective_restore(client_factory):
     names = [b["name"] for b in (await client.get("/api/backups")).json()]
     assert names == ["unfollow-backup-2026-09-01-0900.csv"]
 
-    r = await client.post("/api/restore/start",
-                          json={"name": "unfollow-backup-2026-09-01-0900.csv", "usernames": ["zzz"]})
+    r = await client.post(
+        "/api/restore/start",
+        json={"name": "unfollow-backup-2026-09-01-0900.csv", "usernames": ["zzz"]},
+    )
     assert (r.status_code, r.json()["error"]) == (400, "nothing_selected")
-    r = await client.post("/api/restore/start",
-                          json={"name": "unfollow-backup-2026-09-01-0900.csv", "usernames": "a"})
+    r = await client.post(
+        "/api/restore/start", json={"name": "unfollow-backup-2026-09-01-0900.csv", "usernames": "a"}
+    )
     assert r.status_code == 422
 
 
@@ -288,14 +323,18 @@ async def test_keep_routes_and_review_group(client_factory):
     assert [x["username"] for x in review["groups"]["kept"]] == ["a"]
     assert [x["username"] for x in review["groups"]["gone"]] == ["b"]
     assert (await client.get("/api/state")).json()["targets_remaining"] == 1
-    assert (await client.post("/api/keep", json={"username": "a", "kept": "yes"})).status_code == 422
+    assert (
+        await client.post("/api/keep", json={"username": "a", "kept": "yes"})
+    ).status_code == 422
     await client.post("/api/keep", json={"username": "a", "kept": False})
     assert (await client.get("/api/state")).json()["targets_remaining"] == 2
 
 
 async def test_job_summary_and_welcome_flag(client_factory):
-    driver = FakeDriver(following=[("a", "A"), ("b", "B")],
-                        profiles={"a": Gone(), "b": Posted(date(2024, 1, 1), 1, None)})
+    driver = FakeDriver(
+        following=[("a", "A"), ("b", "B")],
+        profiles={"a": Gone(), "b": Posted(date(2024, 1, 1), 1, None)},
+    )
     client, ctx = client_factory(driver)
     assert (await client.get("/api/state")).json()["settings"]["welcome_seen"] is False
     await client.post("/api/welcome/seen")
@@ -312,13 +351,18 @@ async def test_unfollow_and_restore_refused_while_a_job_is_paused(client_factory
     client, ctx = client_factory()
     ctx.backups_dir.mkdir()
     (ctx.backups_dir / "unfollow-backup-2026-09-01-0900.csv").write_text(
-        "username,profile_url,display_name,last_post_date,status\nz,https://www.instagram.com/z/,Z,,gone\n".replace("\\n", "\n"),
-        encoding="utf-8")
+        "username,profile_url,display_name,last_post_date,status\nz,https://www.instagram.com/z/,Z,,gone\n".replace(
+            "\\n", "\n"
+        ),
+        encoding="utf-8",
+    )
     paused = JobRepo(ctx.conn).create("unfollow", total=3)
     JobRepo(ctx.conn).update(paused.id, state="paused")
     r = await client.post("/api/unfollow/start")
     assert (r.status_code, r.json()["error"]) == (409, "job_paused")
-    r = await client.post("/api/restore/start", json={"name": "unfollow-backup-2026-09-01-0900.csv"})
+    r = await client.post(
+        "/api/restore/start", json={"name": "unfollow-backup-2026-09-01-0900.csv"}
+    )
     assert (r.status_code, r.json()["error"]) == (409, "job_paused")
     r = await client.post("/api/jobs/stop")
     assert r.status_code == 200
@@ -333,6 +377,7 @@ async def test_start_over_forgets_the_owner(client_factory):
     await client.post("/api/scan/start", json={"rescan": False})
     await ctx.runner.wait()
     from igcleanup.storage.meta import MetaRepo
+
     assert MetaRepo(ctx.conn).get("owner") == "owner_one"
     driver.owner = "other"
     await client.post("/api/scan/start", json={"rescan": True})
@@ -359,7 +404,9 @@ async def test_stopping_a_scan_marks_it_failed_not_done(client_factory):
 
 
 async def test_rescan_is_incremental_and_reset_starts_over(client_factory):
-    driver = FakeDriver(following=[("a", "A"), ("b", "B")], profiles={"a": Gone(), "b": Gone()}, owner="owner_one")
+    driver = FakeDriver(
+        following=[("a", "A"), ("b", "B")], profiles={"a": Gone(), "b": Gone()}, owner="owner_one"
+    )
     client, ctx = client_factory(driver)
     await client.post("/api/scan/start", json={"rescan": False})
     await ctx.runner.wait()
@@ -367,10 +414,14 @@ async def test_rescan_is_incremental_and_reset_starts_over(client_factory):
     r = await client.post("/api/scan/start", json={"rescan": True})
     await ctx.runner.wait()
     from igcleanup.storage.meta import MetaRepo
+
     assert JobRepo(ctx.conn).get(r.json()["job_id"]).source == "refresh"
     assert MetaRepo(ctx.conn).get("owner") == "owner_one"  # a rescan keeps the account
     assert AccountRepo(ctx.conn).kept_usernames() == {"a"}
-    assert [c for c in driver.calls if c[0] == "inspect"] == [("inspect", "a"), ("inspect", "b")]  # nothing was stale
+    assert [c for c in driver.calls if c[0] == "inspect"] == [
+        ("inspect", "a"),
+        ("inspect", "b"),
+    ]  # nothing was stale
     state = (await client.get("/api/state")).json()
     assert state["unchecked"] == 0 and state["settings"]["rescan_after_days"] == 30
 
@@ -382,10 +433,16 @@ async def test_rescan_is_incremental_and_reset_starts_over(client_factory):
 
 async def test_settings_rescan_days_round_trip(client_factory):
     client, ctx = client_factory()
-    r = await client.put("/api/settings", json={"daily_action_cap": 100, "inactivity_months": 12, "rescan_after_days": 7})
+    r = await client.put(
+        "/api/settings",
+        json={"daily_action_cap": 100, "inactivity_months": 12, "rescan_after_days": 7},
+    )
     assert r.status_code == 200 and r.json()["rescan_after_days"] == 7
     assert ctx.settings.rescan_after_days == 7
-    r = await client.put("/api/settings", json={"daily_action_cap": 100, "inactivity_months": 12, "rescan_after_days": 0})
+    r = await client.put(
+        "/api/settings",
+        json={"daily_action_cap": 100, "inactivity_months": 12, "rescan_after_days": 0},
+    )
     assert r.status_code == 422
 
 
@@ -409,13 +466,27 @@ async def test_settings_speed_and_quit(client_factory):
     client, ctx = client_factory()
     closed = []
     ctx.on_quit = lambda: closed.append(True)
-    r = await client.put("/api/settings", json={"daily_action_cap": 100, "inactivity_months": 12,
-                                                "rescan_after_days": 30, "speed": "faster"})
+    r = await client.put(
+        "/api/settings",
+        json={
+            "daily_action_cap": 100,
+            "inactivity_months": 12,
+            "rescan_after_days": 30,
+            "speed": "faster",
+        },
+    )
     assert r.status_code == 200 and r.json()["speed"] == "faster"
     assert ctx.settings.action_delay_seconds == (15, 45)
     assert "careful" in r.json()["speed_presets"]
-    r = await client.put("/api/settings", json={"daily_action_cap": 100, "inactivity_months": 12,
-                                                "rescan_after_days": 30, "speed": "warp"})
+    r = await client.put(
+        "/api/settings",
+        json={
+            "daily_action_cap": 100,
+            "inactivity_months": 12,
+            "rescan_after_days": 30,
+            "speed": "warp",
+        },
+    )
     assert r.status_code == 422
     assert (await client.post("/api/quit")).status_code == 200 and closed == [True]
     assert (await client.post("/api/open_terms")).status_code == 200

@@ -32,8 +32,16 @@ def seed(conn, usernames):
 
 
 def make_job(conn, driver, job_id, settings=Settings(), now=NOW):
-    return UnfollowJob(job_id, conn, driver, settings, Pacer(settings, sleep=no_sleep),
-                       ProgressBus(), now=lambda: now, today=lambda: now.date())
+    return UnfollowJob(
+        job_id,
+        conn,
+        driver,
+        settings,
+        Pacer(settings, sleep=no_sleep),
+        ProgressBus(),
+        now=lambda: now,
+        today=lambda: now.date(),
+    )
 
 
 async def test_prepare_writes_backup_then_job_and_run_unfollows_all(tmp_path: Path):
@@ -94,13 +102,20 @@ async def test_action_failed_retries_once_then_marks_error(tmp_path: Path):
     conn = connect(":memory:")
     seed(conn, ["a", "b", "c"])
     job, _ = prepare_unfollow(conn, tmp_path / "backups", now=lambda: NOW)
-    driver = FakeDriver(unfollow_errors={
-        "a": [ActionFailed(), ActionFailed()],
-        "b": [ActionFailed()],
-    })
+    driver = FakeDriver(
+        unfollow_errors={
+            "a": [ActionFailed(), ActionFailed()],
+            "b": [ActionFailed()],
+        }
+    )
     await make_job(conn, driver, job.id).run()
-    assert driver.calls == [("unfollow", "a"), ("unfollow", "a"), ("unfollow", "b"),
-                            ("unfollow", "b"), ("unfollow", "c")]
+    assert driver.calls == [
+        ("unfollow", "a"),
+        ("unfollow", "a"),
+        ("unfollow", "b"),
+        ("unfollow", "b"),
+        ("unfollow", "c"),
+    ]
     repo = AccountRepo(conn)
     assert repo.get("a").status == "error"
     assert repo.get("a").selected is False
@@ -188,6 +203,7 @@ class _LowersCap(FakeDriver):
     async def unfollow(self, username):
         await super().unfollow(username)
         from dataclasses import replace
+
         self.holder["s"] = replace(self.holder["s"], daily_action_cap=1)
 
 
@@ -197,8 +213,16 @@ async def test_settings_saved_mid_run_apply_at_next_check(tmp_path: Path):
     job, _ = prepare_unfollow(conn, tmp_path / "backups", now=lambda: NOW)
     holder = {"s": Settings(daily_action_cap=50)}
     driver = _LowersCap(holder)
-    j = UnfollowJob(job.id, conn, driver, lambda: holder["s"], Pacer(lambda: holder["s"], sleep=no_sleep),
-                    ProgressBus(), now=lambda: NOW, today=lambda: NOW.date())
+    j = UnfollowJob(
+        job.id,
+        conn,
+        driver,
+        lambda: holder["s"],
+        Pacer(lambda: holder["s"], sleep=no_sleep),
+        ProgressBus(),
+        now=lambda: NOW,
+        today=lambda: NOW.date(),
+    )
     await j.run()
     assert driver.calls == [("unfollow", "a")]
     assert JobRepo(conn).get(job.id).message == MSG_DONE_TODAY
@@ -225,8 +249,17 @@ async def test_activity_log_lines(tmp_path: Path):
     job, _ = prepare_unfollow(conn, tmp_path / "backups", now=lambda: NOW)
     driver = FakeDriver(unfollow_errors={"b": [ActionFailed(), ActionFailed()]})
     log = tmp_path / "activity.log"
-    j = UnfollowJob(job.id, conn, driver, Settings(), Pacer(Settings(), sleep=no_sleep), ProgressBus(),
-                    now=lambda: NOW, today=lambda: NOW.date(), activity_log=log)
+    j = UnfollowJob(
+        job.id,
+        conn,
+        driver,
+        Settings(),
+        Pacer(Settings(), sleep=no_sleep),
+        ProgressBus(),
+        now=lambda: NOW,
+        today=lambda: NOW.date(),
+        activity_log=log,
+    )
     await j.run()
     lines = log.read_text(encoding="utf-8").splitlines()
     assert lines[0].startswith("2026-09-14 10:00:00  Unfollowing started")

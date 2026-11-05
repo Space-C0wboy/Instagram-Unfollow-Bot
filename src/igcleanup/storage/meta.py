@@ -13,7 +13,9 @@ class MetaRepo:
 
     def set(self, key: str, value: str) -> None:
         with self.conn:
-            self.conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, value))
+            self.conn.execute(
+                "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, value)
+            )
 
     def delete(self, key: str) -> None:
         with self.conn:

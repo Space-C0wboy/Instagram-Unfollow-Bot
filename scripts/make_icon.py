@@ -4,14 +4,15 @@ Writes assets/icon.ico (16 to 256 px, used by the exe) and
 src/igcleanup/ui/static/icon.png (64 px, used as the page favicon).
 Run from the repo root: python scripts/make_icon.py
 """
+
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 SIZE = 512
-TOP = (255, 77, 150)      # accent pink
-BOTTOM = (120, 40, 200)   # purple
+TOP = (255, 77, 150)  # accent pink
+BOTTOM = (120, 40, 200)  # purple
 
 
 def gradient(size: int) -> Image.Image:
@@ -36,14 +37,26 @@ def draw_broom(draw: ImageDraw.ImageDraw, size: int) -> None:
     white = (255, 255, 255)
     # handle: a thick diagonal line from top-right to lower-left
     draw.line([(372 * s, 96 * s), (216 * s, 292 * s)], fill=white, width=int(34 * s))
-    draw.ellipse([(372 * s - 17 * s, 96 * s - 17 * s), (372 * s + 17 * s, 96 * s + 17 * s)], fill=white)
+    draw.ellipse(
+        [(372 * s - 17 * s, 96 * s - 17 * s), (372 * s + 17 * s, 96 * s + 17 * s)], fill=white
+    )
     # binding: a band where the handle meets the bristles
-    draw.polygon([(190 * s, 262 * s), (252 * s, 326 * s), (232 * s, 346 * s), (170 * s, 282 * s)], fill=white)
+    draw.polygon(
+        [(190 * s, 262 * s), (252 * s, 326 * s), (232 * s, 346 * s), (170 * s, 282 * s)], fill=white
+    )
     # bristles: a fan opening down-left
-    draw.polygon([(176 * s, 288 * s), (238 * s, 350 * s), (150 * s, 438 * s), (104 * s, 420 * s),
-                  (92 * s, 372 * s)], fill=white)
+    draw.polygon(
+        [
+            (176 * s, 288 * s),
+            (238 * s, 350 * s),
+            (150 * s, 438 * s),
+            (104 * s, 420 * s),
+            (92 * s, 372 * s),
+        ],
+        fill=white,
+    )
     # grooves in the bristles, drawn in the background color for depth
-    for i, (x1, y1, x2, y2) in enumerate([(150, 316, 116, 396), (176, 342, 138, 420), (204, 368, 164, 434)]):
+    for x1, y1, x2, y2 in [(150, 316, 116, 396), (176, 342, 138, 420), (204, 368, 164, 434)]:
         draw.line([(x1 * s, y1 * s), (x2 * s, y2 * s)], fill=(255, 77, 150), width=int(10 * s))
 
 

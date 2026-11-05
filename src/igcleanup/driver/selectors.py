@@ -13,7 +13,9 @@ RATE_LIMIT_TEXTS = ("Try again later", "We restrict certain activity")
 DIALOG = 'div[role="dialog"]'
 
 META_DESCRIPTION = 'meta[property="og:description"]'
-META_COUNTS_RE = r"([\d,.]+[KM]?)\s+Followers,\s+([\d,.]+[KM]?)\s+Following,\s+([\d,.]+[KM]?)\s+Posts"
+META_COUNTS_RE = (
+    r"([\d,.]+[KM]?)\s+Followers,\s+([\d,.]+[KM]?)\s+Following,\s+([\d,.]+[KM]?)\s+Posts"
+)
 META_TITLE = 'meta[property="og:title"]'
 
 PROFILE_PIC_ALT_SUFFIX = "'s profile picture"

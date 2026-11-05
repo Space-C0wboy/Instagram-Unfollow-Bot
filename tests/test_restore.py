@@ -25,9 +25,17 @@ async def no_sleep(_):
 
 
 def make(conn, driver, job_id, path, settings=Settings(), now=NOW):
-    return RestoreJob(job_id, conn, driver, settings, Pacer(settings, sleep=no_sleep),
-                      ProgressBus(), now=lambda: now, backup_path=path,
-                      today=lambda: now.date())
+    return RestoreJob(
+        job_id,
+        conn,
+        driver,
+        settings,
+        Pacer(settings, sleep=no_sleep),
+        ProgressBus(),
+        now=lambda: now,
+        backup_path=path,
+        today=lambda: now.date(),
+    )
 
 
 def write_csv(tmp_path: Path) -> Path:
@@ -67,8 +75,7 @@ async def test_restore_reports_failures_in_message(tmp_path: Path):
     conn = connect(":memory:")
     path = write_csv(tmp_path)
     job = prepare_restore(conn, path, now=lambda: NOW)
-    driver = FakeDriver(follow_errors={"b": [ParseError(), ParseError()],
-                                       "c": [ActionFailed()]})
+    driver = FakeDriver(follow_errors={"b": [ParseError(), ParseError()], "c": [ActionFailed()]})
     await make(conn, driver, job.id, path).run()
     j = JobRepo(conn).get(job.id)
     assert (j.state, j.done) == ("done", 3)
@@ -90,7 +97,10 @@ async def test_single_page_load_error_leaves_restore_paused_for_retry(tmp_path: 
     j = JobRepo(conn).get(job.id)
     assert (j.state, j.message) == ("done", "Restored 3 accounts.")
     assert driver.calls == [
-        ("follow", "a"), ("follow", "b"), ("follow", "c"), ("follow", "b"),
+        ("follow", "a"),
+        ("follow", "b"),
+        ("follow", "c"),
+        ("follow", "b"),
     ]
 
 

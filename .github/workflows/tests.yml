@@ -10,6 +10,18 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      # the ruff pin lives in pyproject's dev extra; read it from there so there is one source of truth
+      - run: python -m pip install "$(grep -o 'ruff==[0-9.]*' pyproject.toml)"
+      - run: ruff check --output-format=github .
+      - run: ruff format --check .
+
   pytest:
     # the app ships as a Windows exe (winotify is Windows-only), so test where it runs
     runs-on: windows-latest

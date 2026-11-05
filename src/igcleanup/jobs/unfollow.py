@@ -1,6 +1,6 @@
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
-from typing import Callable
 
 from igcleanup.driver.types import ActionFailed, PageLoadError, ParseError
 from igcleanup.jobs.engine import MSG_CONNECTION, MSG_DONE_TODAY, BaseJob
@@ -50,8 +50,9 @@ class UnfollowJob(BaseJob):
                 return
             await self.pacer.before_action(
                 self._seconds_since_last_action(),
-                on_wait=lambda secs: self.set_state(
-                    "running", done=done, message=f"Next unfollow in about {round(secs)} seconds"),
+                on_wait=lambda secs, done=done: self.set_state(
+                    "running", done=done, message=f"Next unfollow in about {round(secs)} seconds"
+                ),
             )
             self.set_state("running", done=done, message=None)
             try:

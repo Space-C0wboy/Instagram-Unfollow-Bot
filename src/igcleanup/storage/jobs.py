@@ -20,8 +20,13 @@ class Job:
 
 def _row_to_job(r: sqlite3.Row) -> Job:
     return Job(
-        id=r["id"], type=r["type"], state=r["state"], total=r["total"], done=r["done"],
-        message=r["message"], source=r["source"],
+        id=r["id"],
+        type=r["type"],
+        state=r["state"],
+        total=r["total"],
+        done=r["done"],
+        message=r["message"],
+        source=r["source"],
         started_at=datetime.fromisoformat(r["started_at"]),
         finished_at=datetime.fromisoformat(r["finished_at"]) if r["finished_at"] else None,
     )
@@ -31,8 +36,9 @@ class JobRepo:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
 
-    def create(self, type: str, total: int, started_at: datetime | None = None,
-               source: str | None = None) -> Job:
+    def create(
+        self, type: str, total: int, started_at: datetime | None = None, source: str | None = None
+    ) -> Job:
         started_at = started_at or datetime.now()
         with self.conn:
             cur = self.conn.execute(
@@ -42,19 +48,25 @@ class JobRepo:
             )
         return self.get(cur.lastrowid)
 
-    def update(self, job_id: int, *, state=None, total=None, done=None,
-               message=_UNSET, finished_at=None) -> None:
+    def update(
+        self, job_id: int, *, state=None, total=None, done=None, message=_UNSET, finished_at=None
+    ) -> None:
         sets, params = [], []
         if state is not None:
-            sets.append("state = ?"); params.append(state)
+            sets.append("state = ?")
+            params.append(state)
         if total is not None:
-            sets.append("total = ?"); params.append(total)
+            sets.append("total = ?")
+            params.append(total)
         if done is not None:
-            sets.append("done = ?"); params.append(done)
+            sets.append("done = ?")
+            params.append(done)
         if message is not _UNSET:
-            sets.append("message = ?"); params.append(message)
+            sets.append("message = ?")
+            params.append(message)
         if finished_at is not None:
-            sets.append("finished_at = ?"); params.append(finished_at.isoformat())
+            sets.append("finished_at = ?")
+            params.append(finished_at.isoformat())
         if not sets:
             return
         params.append(job_id)
@@ -62,7 +74,9 @@ class JobRepo:
             self.conn.execute(f"UPDATE jobs SET {', '.join(sets)} WHERE id = ?", params)
 
     def get(self, job_id: int) -> Job:
-        return _row_to_job(self.conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone())
+        return _row_to_job(
+            self.conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        )
 
     def latest(self, type: str) -> Job | None:
         r = self.conn.execute(
@@ -109,5 +123,7 @@ class EventRepo:
         ).fetchone()[0]
 
     def usernames_for_job(self, job_id: int) -> set[str]:
-        rows = self.conn.execute("SELECT username FROM events WHERE job_id = ?", (job_id,)).fetchall()
+        rows = self.conn.execute(
+            "SELECT username FROM events WHERE job_id = ?", (job_id,)
+        ).fetchall()
         return {r["username"] for r in rows}

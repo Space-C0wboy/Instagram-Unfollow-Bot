@@ -1,11 +1,19 @@
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from igcleanup.driver.types import ProfileResult
 
 
 class FakeDriver:
-    def __init__(self, following=(), profiles=None, unfollow_errors=None,
-                 follow_errors=None, logged_in=True, images=None, owner="me"):
+    def __init__(
+        self,
+        following=(),
+        profiles=None,
+        unfollow_errors=None,
+        follow_errors=None,
+        logged_in=True,
+        images=None,
+        owner="me",
+    ):
         self.following = list(following)
         self.profiles = dict(profiles or {})
         self.unfollow_errors = {k: list(v) for k, v in (unfollow_errors or {}).items()}

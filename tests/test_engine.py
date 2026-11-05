@@ -4,8 +4,7 @@ from datetime import date
 import pytest
 
 from igcleanup.driver.types import LoggedOut, RateLimited
-from igcleanup.jobs.engine import (MSG_LOGIN, MSG_RATE_LIMITED, BaseJob, JobRunner,
-                                   months_ago)
+from igcleanup.jobs.engine import MSG_LOGIN, MSG_RATE_LIMITED, BaseJob, JobRunner, months_ago
 from igcleanup.jobs.pacing import Pacer
 from igcleanup.jobs.progress import ProgressBus
 from igcleanup.settings import Settings
@@ -20,8 +19,14 @@ async def no_sleep(_):
 
 def make(job_cls, conn, driver=None):
     job = JobRepo(conn).create("scan", total=0)
-    return job_cls(job.id, conn, driver or FakeDriver(), Settings(),
-                   Pacer(Settings(), sleep=no_sleep), ProgressBus())
+    return job_cls(
+        job.id,
+        conn,
+        driver or FakeDriver(),
+        Settings(),
+        Pacer(Settings(), sleep=no_sleep),
+        ProgressBus(),
+    )
 
 
 class Finishes(BaseJob):
@@ -132,11 +137,19 @@ async def test_runner_refuses_second_job_while_busy():
 
 async def test_notifier_called_once_per_transition():
     from igcleanup.jobs.engine import MSG_DONE_TODAY
+
     conn = connect(":memory:")
     toasts = []
     job = JobRepo(conn).create("unfollow", total=5)
-    j = BaseJob(job.id, conn, FakeDriver(), Settings(), Pacer(Settings(), sleep=no_sleep),
-                ProgressBus(), notifier=lambda t, m: toasts.append(m))
+    j = BaseJob(
+        job.id,
+        conn,
+        FakeDriver(),
+        Settings(),
+        Pacer(Settings(), sleep=no_sleep),
+        ProgressBus(),
+        notifier=lambda t, m: toasts.append(m),
+    )
     j.set_state("running", done=1)
     j.set_state("running", done=2)
     j.set_state("paused", message=MSG_DONE_TODAY, done=3)

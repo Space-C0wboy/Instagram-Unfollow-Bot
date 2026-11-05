@@ -1,6 +1,6 @@
 import asyncio
 import random
-from typing import Callable
+from collections.abc import Callable
 
 from igcleanup.settings import Settings
 
@@ -8,8 +8,13 @@ SLEEP_SLICE_SECONDS = 0.5
 
 
 class Pacer:
-    def __init__(self, settings, sleep=asyncio.sleep, uniform=random.uniform,
-                 rng: random.Random | None = None):
+    def __init__(
+        self,
+        settings,
+        sleep=asyncio.sleep,
+        uniform=random.uniform,
+        rng: random.Random | None = None,
+    ):
         self._settings = settings  # a Settings, or a callable returning the current one
         self._sleep = sleep
         self._uniform = uniform

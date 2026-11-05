@@ -1,22 +1,24 @@
 import asyncio
 import contextlib
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
-from typing import Callable
 
 from igcleanup.driver.types import Driver, LoggedOut, RateLimited
 from igcleanup.jobs.pacing import Pacer
 from igcleanup.jobs.progress import ProgressBus
 from igcleanup.settings import Settings
 from igcleanup.storage.accounts import AccountRepo
-from igcleanup.storage.jobs import EventRepo, JobRepo, _UNSET
+from igcleanup.storage.jobs import _UNSET, EventRepo, JobRepo
 from igcleanup.storage.meta import MetaRepo
 
 MSG_LOGIN = "Please log in again."
 MSG_CONNECTION = "Check your connection, then press Resume."
 MSG_RATE_LIMITED = "Instagram asked us to slow down. Wait a few hours, then press Resume."
-MSG_LAYOUT = ("Instagram may have changed its layout, or is temporarily limiting this account. "
-              "Wait an hour and press Resume; if it keeps happening, this tool needs an update.")
+MSG_LAYOUT = (
+    "Instagram may have changed its layout, or is temporarily limiting this account. "
+    "Wait an hour and press Resume; if it keeps happening, this tool needs an update."
+)
 MSG_DONE_TODAY = "Done for today, come back tomorrow."
 
 
@@ -56,16 +58,25 @@ def seconds_per_item(settings: Settings, job_type: str) -> float:
         return (pair[0] + pair[1]) / 2
 
     if job_type == "scan":
-        return (mean(settings.scan_delay_seconds)
-                + mean(settings.scan_rest_seconds) / max(1, settings.scan_rest_every))
+        return mean(settings.scan_delay_seconds) + mean(settings.scan_rest_seconds) / max(
+            1, settings.scan_rest_every
+        )
     return mean(settings.action_delay_seconds)
 
 
 class BaseJob:
-    def __init__(self, job_id: int, conn, driver: Driver, settings,
-                 pacer: Pacer, bus: ProgressBus, now: Callable[[], datetime] = datetime.now,
-                 notifier: Callable[[str, str], None] | None = None,
-                 activity_log: Path | None = None):
+    def __init__(
+        self,
+        job_id: int,
+        conn,
+        driver: Driver,
+        settings,
+        pacer: Pacer,
+        bus: ProgressBus,
+        now: Callable[[], datetime] = datetime.now,
+        notifier: Callable[[str, str], None] | None = None,
+        activity_log: Path | None = None,
+    ):
         self.notifier = notifier
         self.activity_log = activity_log
         self.job_id = job_id
@@ -106,33 +117,56 @@ class BaseJob:
         elif owner != me:
             raise WrongAccount(
                 f"A different Instagram account is logged in (@{me}). This tool was set up for "
-                f"@{owner}. Log in as @{owner}, or press Scan again to start over with @{me}.")
+                f"@{owner}. Log in as @{owner}, or press Scan again to start over with @{me}."
+            )
 
     def request_pause(self) -> None:
         self.stop_requested = True
 
-    def set_state(self, state: str, *, message=_UNSET, done: int | None = None,
-                  total: int | None = None, current: str | None = None) -> None:
+    def set_state(
+        self,
+        state: str,
+        *,
+        message=_UNSET,
+        done: int | None = None,
+        total: int | None = None,
+        current: str | None = None,
+    ) -> None:
         finished_at = self.now() if state in ("done", "failed") else None
         before = self.jobs.get(self.job_id)
-        self.jobs.update(self.job_id, state=state, done=done, total=total,
-                         message=message, finished_at=finished_at)
+        self.jobs.update(
+            self.job_id,
+            state=state,
+            done=done,
+            total=total,
+            message=message,
+            finished_at=finished_at,
+        )
         job = self.jobs.get(self.job_id)
         if (job.state, job.message) != (before.state, before.message):
             label = JOB_LABELS.get(job.type, job.type)
             if job.state != "running":
-                self.log_action(f"{label} {job.state}" + (f": {job.message}" if job.message else ""))
+                self.log_action(
+                    f"{label} {job.state}" + (f": {job.message}" if job.message else "")
+                )
             if self.notifier is not None:
                 text = notification_text(job)
                 if text:
                     self.notifier("Instagram Cleanup", text)
-        self.bus.publish({
-            "job_id": job.id, "type": job.type, "state": job.state, "done": job.done,
-            "total": job.total, "message": job.message, "current": current,
-            "actions_today": self.events.count_on(self.now().date()),
-            "daily_action_cap": self.settings.daily_action_cap,
-            "seconds_per_item": seconds_per_item(self.settings, job.type),
-        })
+        self.bus.publish(
+            {
+                "job_id": job.id,
+                "type": job.type,
+                "state": job.state,
+                "done": job.done,
+                "total": job.total,
+                "message": job.message,
+                "current": current,
+                "actions_today": self.events.count_on(self.now().date()),
+                "daily_action_cap": self.settings.daily_action_cap,
+                "seconds_per_item": seconds_per_item(self.settings, job.type),
+            }
+        )
 
     def check_pause(self) -> bool:
         if self.stop_requested:
@@ -142,7 +176,9 @@ class BaseJob:
 
     async def run(self) -> None:
         job = self.jobs.get(self.job_id)
-        self.log_action(f"{JOB_LABELS.get(job.type, job.type)} started ({job.done} of {job.total} done so far)")
+        self.log_action(
+            f"{JOB_LABELS.get(job.type, job.type)} started ({job.done} of {job.total} done so far)"
+        )
         self.set_state("running", message=None)
         try:
             await self._run()

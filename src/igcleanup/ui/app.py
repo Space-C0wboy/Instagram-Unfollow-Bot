@@ -1,10 +1,10 @@
 import asyncio
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Callable
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
@@ -49,12 +49,24 @@ class AppContext:
 
 
 def build_job(ctx: AppContext, job: Job) -> BaseJob:
-    common = dict(conn=ctx.conn, driver=ctx.driver, settings=lambda: ctx.settings,
-                  pacer=Pacer(lambda: ctx.settings), bus=ctx.bus, now=ctx.now, notifier=ctx.notifier,
-                  activity_log=ctx.activity_log)
+    common = dict(
+        conn=ctx.conn,
+        driver=ctx.driver,
+        settings=lambda: ctx.settings,
+        pacer=Pacer(lambda: ctx.settings),
+        bus=ctx.bus,
+        now=ctx.now,
+        notifier=ctx.notifier,
+        activity_log=ctx.activity_log,
+    )
     if job.type == "scan":
-        return ScanJob(job.id, today=ctx.today, avatars_dir=ctx.avatars_dir,
-                       refresh=(job.source == "refresh"), **common)
+        return ScanJob(
+            job.id,
+            today=ctx.today,
+            avatars_dir=ctx.avatars_dir,
+            refresh=(job.source == "refresh"),
+            **common,
+        )
     if job.type == "unfollow":
         return UnfollowJob(job.id, today=ctx.today, **common)
     if job.type == "restore":
@@ -65,16 +77,27 @@ def build_job(ctx: AppContext, job: Job) -> BaseJob:
 def _job_dict(job: Job | None) -> dict | None:
     if job is None:
         return None
-    return {"id": job.id, "type": job.type, "state": job.state, "total": job.total,
-            "done": job.done, "message": job.message}
+    return {
+        "id": job.id,
+        "type": job.type,
+        "state": job.state,
+        "total": job.total,
+        "done": job.done,
+        "message": job.message,
+    }
 
 
 def _account_dict(a: Account) -> dict:
-    return {"username": a.username, "display_name": a.display_name, "profile_url": a.profile_url,
-            "profile_pic_url": a.profile_pic_url,
-            "last_post_date": a.last_post_date.isoformat() if a.last_post_date else None,
-            "status": a.status, "selected": a.selected,
-            "checked_at": a.checked_at.date().isoformat() if a.checked_at else None}
+    return {
+        "username": a.username,
+        "display_name": a.display_name,
+        "profile_url": a.profile_url,
+        "profile_pic_url": a.profile_pic_url,
+        "last_post_date": a.last_post_date.isoformat() if a.last_post_date else None,
+        "status": a.status,
+        "selected": a.selected,
+        "checked_at": a.checked_at.date().isoformat() if a.checked_at else None,
+    }
 
 
 def _is_stale(ctx: AppContext, latest_scan: Job | None) -> bool:
@@ -147,11 +170,13 @@ def create_app(ctx: AppContext) -> FastAPI:
             "targets_remaining": len(accounts.targets()),
             "unchecked": accounts.unchecked_count(),
             "stale": _is_stale(ctx, latest_scan),
-            "settings": {"daily_action_cap": ctx.settings.daily_action_cap,
-                         "inactivity_months": ctx.settings.inactivity_months,
-                         "welcome_seen": ctx.settings.welcome_seen,
-                         "rescan_after_days": ctx.settings.rescan_after_days,
-                         "speed": ctx.settings.speed},
+            "settings": {
+                "daily_action_cap": ctx.settings.daily_action_cap,
+                "inactivity_months": ctx.settings.inactivity_months,
+                "welcome_seen": ctx.settings.welcome_seen,
+                "rescan_after_days": ctx.settings.rescan_after_days,
+                "speed": ctx.settings.speed,
+            },
         }
 
     @app.post("/api/scan/start")
@@ -167,10 +192,18 @@ def create_app(ctx: AppContext) -> FastAPI:
             return JSONResponse({"error": "job_paused"}, status_code=409)
         if rescan or active is None or active.type != "scan":
             if active is not None:
-                jobs.update(active.id, state="failed", message="Replaced by a new scan",
-                            finished_at=ctx.now())
-            active = jobs.create("scan", total=accounts.count(), started_at=ctx.now(),
-                                 source="refresh" if rescan else None)
+                jobs.update(
+                    active.id,
+                    state="failed",
+                    message="Replaced by a new scan",
+                    finished_at=ctx.now(),
+                )
+            active = jobs.create(
+                "scan",
+                total=accounts.count(),
+                started_at=ctx.now(),
+                source="refresh" if rescan else None,
+            )
         ctx.runner.start(build_job(ctx, active))
         return {"job_id": active.id}
 
@@ -218,8 +251,11 @@ def create_app(ctx: AppContext) -> FastAPI:
                 groups["kept"].append(_account_dict(a))
             elif a.status in groups:
                 groups[a.status].append(_account_dict(a))
-        return {"groups": groups, "stale": _is_stale(ctx, jobs.latest("scan")),
-                "unchecked": accounts.unchecked_count()}
+        return {
+            "groups": groups,
+            "stale": _is_stale(ctx, jobs.latest("scan")),
+            "unchecked": accounts.unchecked_count(),
+        }
 
     @app.post("/api/keep")
     async def keep(request: Request):
@@ -241,7 +277,9 @@ def create_app(ctx: AppContext) -> FastAPI:
             return JSONResponse({"error": "not_found"}, status_code=404)
         out = _job_dict(job)
         out["counts"] = accounts.status_counts() if job.type == "scan" else None
-        out["remaining"] = len(accounts.targets()) if job.type == "unfollow" else max(0, job.total - job.done)
+        out["remaining"] = (
+            len(accounts.targets()) if job.type == "unfollow" else max(0, job.total - job.done)
+        )
         return out
 
     @app.post("/api/welcome/seen")
@@ -255,8 +293,11 @@ def create_app(ctx: AppContext) -> FastAPI:
         body = await request.json()
         usernames = body.get("usernames")
         selected = body.get("selected")
-        if not (isinstance(usernames, list) and all(isinstance(u, str) for u in usernames)
-                and isinstance(selected, bool)):
+        if not (
+            isinstance(usernames, list)
+            and all(isinstance(u, str) for u in usernames)
+            and isinstance(selected, bool)
+        ):
             return JSONResponse({"error": "invalid"}, status_code=422)
         accounts.set_selected(usernames, selected)
         return {"ok": True}
@@ -278,25 +319,30 @@ def create_app(ctx: AppContext) -> FastAPI:
 
     @app.get("/api/settings")
     async def get_settings():
-        return {"daily_action_cap": ctx.settings.daily_action_cap,
-                "inactivity_months": ctx.settings.inactivity_months,
-                "rescan_after_days": ctx.settings.rescan_after_days,
-                "speed": ctx.settings.speed,
-                "speed_presets": SPEED_PRESETS}
+        return {
+            "daily_action_cap": ctx.settings.daily_action_cap,
+            "inactivity_months": ctx.settings.inactivity_months,
+            "rescan_after_days": ctx.settings.rescan_after_days,
+            "speed": ctx.settings.speed,
+            "speed_presets": SPEED_PRESETS,
+        }
 
     @app.put("/api/settings")
     async def put_settings(request: Request):
         body = await request.json()
         cap, months = body.get("daily_action_cap"), body.get("inactivity_months")
         days = body.get("rescan_after_days", ctx.settings.rescan_after_days)
-        ok = all(isinstance(v, int) and not isinstance(v, bool) and v >= 1 for v in (cap, months, days))
+        ok = all(
+            isinstance(v, int) and not isinstance(v, bool) and v >= 1 for v in (cap, months, days)
+        )
         if not ok:
             return JSONResponse({"error": "invalid"}, status_code=422)
         speed = body.get("speed", ctx.settings.speed)
         if speed not in SPEED_PRESETS:
             return JSONResponse({"error": "invalid"}, status_code=422)
-        ctx.settings = replace(ctx.settings, daily_action_cap=cap, inactivity_months=months,
-                               rescan_after_days=days)
+        ctx.settings = replace(
+            ctx.settings, daily_action_cap=cap, inactivity_months=months, rescan_after_days=days
+        )
         if speed != ctx.settings.speed:
             ctx.settings = with_speed(ctx.settings, speed)
         save_settings(ctx.settings_path, ctx.settings)
@@ -321,7 +367,9 @@ def create_app(ctx: AppContext) -> FastAPI:
             return busy()
         active = jobs.active()
         if active is not None:
-            jobs.update(active.id, state="failed", message="Stopped by Start over.", finished_at=ctx.now())
+            jobs.update(
+                active.id, state="failed", message="Stopped by Start over.", finished_at=ctx.now()
+            )
         accounts.reset_all()
         MetaRepo(ctx.conn).delete("owner")
         MetaRepo(ctx.conn).delete("scan_warning")
@@ -329,7 +377,9 @@ def create_app(ctx: AppContext) -> FastAPI:
 
     @app.get("/api/backups")
     async def backups():
-        return [{"name": p.name, "count": len(read_backup(p))} for p in list_backups(ctx.backups_dir)]
+        return [
+            {"name": p.name, "count": len(read_backup(p))} for p in list_backups(ctx.backups_dir)
+        ]
 
     def backup_path(name: str) -> Path | None:
         path = ctx.backups_dir / str(name)
@@ -342,10 +392,19 @@ def create_app(ctx: AppContext) -> FastAPI:
         path = backup_path(name)
         if path is None:
             return JSONResponse({"error": "not_found"}, status_code=404)
-        return {"name": path.name, "rows": [
-            {"username": r.username, "profile_url": r.profile_url, "display_name": r.display_name,
-             "last_post_date": r.last_post_date, "status": r.status}
-            for r in read_backup(path)]}
+        return {
+            "name": path.name,
+            "rows": [
+                {
+                    "username": r.username,
+                    "profile_url": r.profile_url,
+                    "display_name": r.display_name,
+                    "last_post_date": r.last_post_date,
+                    "status": r.status,
+                }
+                for r in read_backup(path)
+            ],
+        }
 
     @app.post("/api/restore/start")
     async def restore_start(request: Request):
@@ -354,8 +413,9 @@ def create_app(ctx: AppContext) -> FastAPI:
         if path is None:
             return JSONResponse({"error": "not_found"}, status_code=404)
         usernames = body.get("usernames")
-        if usernames is not None and not (isinstance(usernames, list)
-                                          and all(isinstance(x, str) for x in usernames)):
+        if usernames is not None and not (
+            isinstance(usernames, list) and all(isinstance(x, str) for x in usernames)
+        ):
             return JSONResponse({"error": "invalid"}, status_code=422)
         if ctx.runner.is_running():
             return busy()
@@ -393,7 +453,9 @@ def create_app(ctx: AppContext) -> FastAPI:
                     sent += 1
             finally:
                 ctx.bus.unsubscribe(q)
-        return StreamingResponse(gen(), media_type="text/event-stream",
-                                 headers={"Cache-Control": "no-cache"})
+
+        return StreamingResponse(
+            gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"}
+        )
 
     return app

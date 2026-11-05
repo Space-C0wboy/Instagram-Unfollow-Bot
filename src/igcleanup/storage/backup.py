@@ -32,10 +32,15 @@ def write_backup(backups_dir: Path, accounts: list[Account], now: datetime) -> P
         w = csv.writer(f)
         w.writerow(COLUMNS)
         for a in accounts:
-            w.writerow([
-                _escape_formula(a.username), a.profile_url, _escape_formula(a.display_name),
-                a.last_post_date.isoformat() if a.last_post_date else "", a.status,
-            ])
+            w.writerow(
+                [
+                    _escape_formula(a.username),
+                    a.profile_url,
+                    _escape_formula(a.display_name),
+                    a.last_post_date.isoformat() if a.last_post_date else "",
+                    a.status,
+                ]
+            )
     return path
 
 
