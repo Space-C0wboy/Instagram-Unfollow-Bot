@@ -200,6 +200,9 @@ class PlaywrightDriver:
                     display = lines[1] if len(lines) > 1 else ""
                     collected.append((href, display))
                     new += 1
+                # Hand each round over as it is read: big lists take many minutes to scroll.
+                for pair in collected[len(collected) - new:]:
+                    yield pair
                 idle = 0 if new else idle + 1
                 scrolled = await dialog.evaluate(
                     """d => {
@@ -225,9 +228,6 @@ class PlaywrightDriver:
         n = len(collected)
         if n < 0.9 * expected:
             self.following_warning = f"Only {n} of {expected} accounts could be listed."
-
-        for href, display in collected:
-            yield href, display
 
     async def inspect_profile(self, username: str) -> ProfileResult:
         state = await self._goto(f"{BASE}/{username}/")

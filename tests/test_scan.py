@@ -220,3 +220,95 @@ async def test_refresh_scan_keeps_recent_rows_and_rechecks_stale_ones():
     assert repo.get("stale").status == "inactive" and repo.get("stale").selected is True
     assert repo.get("newbie").status == "gone" and repo.get("newbie").selected is True
     assert jobs.get(job_row.id).state == "done"
+
+
+class SnoopingDriver(FakeDriver):
+    """Records the job row while the Following list is still being read."""
+
+    def __init__(self, conn, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.conn = conn
+        self.mid_listing = None
+
+    async def list_following(self):
+        self.calls.append(("list_following", ""))
+        for i, pair in enumerate(self.following):
+            if i == 150:
+                self.mid_listing = JobRepo(self.conn).get(1)  # the only job in this database
+            yield pair
+
+
+async def test_long_following_list_shows_progress_while_listing():
+    conn = connect(":memory:")
+    names = [(f"u{i}", "") for i in range(250)]
+    driver = SnoopingDriver(conn, following=names, profiles={n: Gone() for n, _ in names})
+    job = scan_job(conn, driver)
+    await job.run()
+    seen = driver.mid_listing
+    assert seen.total == 100
+    assert seen.message == "Reading your Following list: 100 found so far"
+    assert JobRepo(conn).get(job.job_id).state == "done"
+
+
+class FailingListDriver(FakeDriver):
+    """The first listing dies partway through; later listings work."""
+
+    def __init__(self, *args, fail_after: int, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fail_after = fail_after
+
+    async def list_following(self):
+        self.calls.append(("list_following", ""))
+        first = self.calls.count(("list_following", "")) == 1
+        for i, pair in enumerate(self.following):
+            if first and i == self.fail_after:
+                raise PageLoadError("dialog closed")
+            yield pair
+
+
+class PausingListDriver(FakeDriver):
+    """The user presses Pause while the first listing is still scrolling."""
+
+    job = None
+    yielded = 0
+
+    async def list_following(self):
+        self.calls.append(("list_following", ""))
+        first = self.calls.count(("list_following", "")) == 1
+        for i, pair in enumerate(self.following):
+            if first and i == 150:
+                self.job.request_pause()
+            self.yielded += 1
+            yield pair
+
+
+async def test_pause_while_listing_stops_and_resume_relists():
+    conn = connect(":memory:")
+    names = [(f"u{i}", "") for i in range(250)]
+    driver = PausingListDriver(following=names, profiles={n: Gone() for n, _ in names})
+    job = driver.job = scan_job(conn, driver)
+    await job.run()
+    assert JobRepo(conn).get(job.job_id).state == "paused"
+    assert driver.yielded < 250
+    assert ("inspect", "u0") not in driver.calls
+
+    again = scan_job(conn, driver, job_id=job.job_id)
+    await again.run()
+    assert driver.calls.count(("list_following", "")) == 2
+    assert len(statuses(conn)) == 250
+    assert JobRepo(conn).get(job.job_id).state == "done"
+
+
+async def test_listing_that_dies_partway_is_redone_on_resume():
+    conn = connect(":memory:")
+    names = [(f"u{i}", "") for i in range(250)]
+    driver = FailingListDriver(following=names, profiles={n: Gone() for n, _ in names}, fail_after=150)
+    job = scan_job(conn, driver)
+    await job.run()
+    assert JobRepo(conn).get(job.job_id).state == "failed"
+
+    again = scan_job(conn, driver, job_id=job.job_id)
+    await again.run()
+    assert driver.calls.count(("list_following", "")) == 2
+    assert len(statuses(conn)) == 250
+    assert JobRepo(conn).get(job.job_id).state == "done"
