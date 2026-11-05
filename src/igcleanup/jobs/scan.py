@@ -1,3 +1,4 @@
+import contextlib
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Callable
@@ -29,31 +30,43 @@ class ScanJob(BaseJob):
         (self.avatars_dir / f"{username}.jpg").write_bytes(data)
         return f"/avatars/{username}.jpg"
 
-    async def _collect_following(self) -> None:
+    async def _collect_following(self) -> bool:
+        """Read the Following list into the database; True if the user paused partway."""
+        # Rows are saved as they arrive, so a listing that dies partway must be redone on resume.
+        self.meta.set("listing_incomplete", str(self.job_id))
         listed: list[str] = []
         batch: list[tuple[str, str]] = []
-        async for pair in self.driver.list_following():
-            listed.append(pair[0])
-            batch.append(pair)
-            if len(batch) >= UPSERT_BATCH:
-                self.accounts.upsert_following(batch)
-                batch = []
-                self.set_state("running", total=self.accounts.count())
+        # aclosing: on pause the driver's cleanup (closing the dialog) runs now, not at garbage collection.
+        async with contextlib.aclosing(self.driver.list_following()) as following:
+            async for pair in following:
+                if self.check_pause():
+                    return True  # listing_incomplete stays set, so resume reads the list again
+                listed.append(pair[0])
+                batch.append(pair)
+                if len(batch) >= UPSERT_BATCH:
+                    self.accounts.upsert_following(batch)
+                    batch = []
+                    self.set_state("running", total=self.accounts.count(),
+                                   message=f"Reading your Following list: {len(listed):,} found so far")
         if batch:
             self.accounts.upsert_following(batch)
+        self.meta.delete("listing_incomplete")
         if self.refresh:
             self.accounts.remove_not_in(listed)
             cutoff = self.now() - timedelta(days=max(1, self.settings.rescan_after_days))
             self.accounts.mark_stale_pending(cutoff)
             self.meta.set("refresh_listed", str(self.job_id))
-        self.set_state("running", total=self.accounts.count())
+        self.set_state("running", total=self.accounts.count(), message=None)
+        return False
 
     async def _run(self) -> None:
         await self.ensure_same_account()
         started = self.now()
         already_listed = self.refresh and self.meta.get("refresh_listed") == str(self.job_id)
-        if self.accounts.count() == 0 or (self.refresh and not already_listed):
-            await self._collect_following()
+        if (self.accounts.count() == 0 or (self.refresh and not already_listed)
+                or self.meta.get("listing_incomplete")):
+            if await self._collect_following():
+                return
             warning = getattr(self.driver, "following_warning", None)
             if warning:
                 self.meta.set("scan_warning", warning)
