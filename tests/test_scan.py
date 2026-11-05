@@ -1,7 +1,14 @@
 from datetime import date
 
-from igcleanup.driver.types import (Gone, LoggedOut, NeverPosted, PageLoadError, ParseError,
-                                    Posted, RateLimited)
+from igcleanup.driver.types import (
+    Gone,
+    LoggedOut,
+    NeverPosted,
+    PageLoadError,
+    ParseError,
+    Posted,
+    RateLimited,
+)
 from igcleanup.jobs.engine import MSG_CONNECTION, MSG_LAYOUT, MSG_LOGIN, MSG_RATE_LIMITED
 from igcleanup.jobs.pacing import Pacer
 from igcleanup.jobs.progress import ProgressBus
@@ -22,8 +29,15 @@ async def no_sleep(_):
 def scan_job(conn, driver, job_id=None):
     jobs = JobRepo(conn)
     job_id = job_id or jobs.create("scan", total=0).id
-    return ScanJob(job_id, conn, driver, Settings(), Pacer(Settings(), sleep=no_sleep),
-                   ProgressBus(), today=lambda: TODAY)
+    return ScanJob(
+        job_id,
+        conn,
+        driver,
+        Settings(),
+        Pacer(Settings(), sleep=no_sleep),
+        ProgressBus(),
+        today=lambda: TODAY,
+    )
 
 
 def statuses(conn):
@@ -43,7 +57,12 @@ async def test_full_scan_classifies_and_applies_default_selection():
     )
     job = scan_job(conn, driver)
     await job.run()
-    assert statuses(conn) == {"gone": "gone", "never": "never_posted", "old": "inactive", "new": "active"}
+    assert statuses(conn) == {
+        "gone": "gone",
+        "never": "never_posted",
+        "old": "inactive",
+        "new": "active",
+    }
     j = JobRepo(conn).get(job.job_id)
     assert (j.state, j.done, j.total) == ("done", 4, 4)
     assert {a.username for a in AccountRepo(conn).targets()} == {"gone", "old"}
@@ -83,8 +102,9 @@ async def test_rate_limit_pauses_and_rerun_resumes_from_pending():
 async def test_five_consecutive_parse_errors_pause_with_layout_message():
     conn = connect(":memory:")
     names = [f"u{i}" for i in range(6)]
-    driver = FakeDriver(following=[(n, n) for n in names],
-                        profiles={n: ParseError() for n in names})
+    driver = FakeDriver(
+        following=[(n, n) for n in names], profiles={n: ParseError() for n in names}
+    )
     job = scan_job(conn, driver)
     await job.run()
     j = JobRepo(conn).get(job.job_id)
@@ -109,8 +129,9 @@ async def test_parse_errors_reset_after_a_success():
 async def test_three_page_load_errors_pause_with_connection_message():
     conn = connect(":memory:")
     names = ["a", "b", "c", "d"]
-    driver = FakeDriver(following=[(n, n) for n in names],
-                        profiles={n: PageLoadError() for n in names})
+    driver = FakeDriver(
+        following=[(n, n) for n in names], profiles={n: PageLoadError() for n in names}
+    )
     job = scan_job(conn, driver)
     await job.run()
     j = JobRepo(conn).get(job.job_id)
@@ -166,14 +187,23 @@ async def test_scan_caches_avatars_locally(tmp_path):
     conn = connect(":memory:")
     driver = FakeDriver(
         following=[("a", "A"), ("b", "B")],
-        profiles={"a": Posted(date(2024, 1, 1), 5, "http://cdn/a.jpg"),
-                  "b": Posted(date(2024, 1, 1), 5, "http://cdn/b.jpg")},
+        profiles={
+            "a": Posted(date(2024, 1, 1), 5, "http://cdn/a.jpg"),
+            "b": Posted(date(2024, 1, 1), 5, "http://cdn/b.jpg"),
+        },
         images={"http://cdn/a.jpg": b"img-a"},
     )
     jobs = JobRepo(conn)
-    job = ScanJob(jobs.create("scan", total=0).id, conn, driver, Settings(),
-                  Pacer(Settings(), sleep=no_sleep), ProgressBus(), today=lambda: TODAY,
-                  avatars_dir=tmp_path / "avatars")
+    job = ScanJob(
+        jobs.create("scan", total=0).id,
+        conn,
+        driver,
+        Settings(),
+        Pacer(Settings(), sleep=no_sleep),
+        ProgressBus(),
+        today=lambda: TODAY,
+        avatars_dir=tmp_path / "avatars",
+    )
     await job.run()
     repo = AccountRepo(conn)
     assert repo.get("a").profile_pic_url == "/avatars/a.jpg"
@@ -193,12 +223,17 @@ async def test_following_warning_is_kept_on_the_finished_scan():
 
 async def test_refresh_scan_keeps_recent_rows_and_rechecks_stale_ones():
     from datetime import datetime
+
     conn = connect(":memory:")
     repo = AccountRepo(conn)
     now = datetime(2026, 9, 15, 12, 0)
     repo.upsert_following([("recent", "R"), ("stale", "S"), ("unfollowed_by_her", "U")])
-    repo.set_result("recent", status="inactive", last_post_date=date(2024, 1, 1), checked_at=now.replace(day=10))
-    repo.set_result("stale", status="active", last_post_date=date(2026, 8, 1), checked_at=now.replace(month=6))
+    repo.set_result(
+        "recent", status="inactive", last_post_date=date(2024, 1, 1), checked_at=now.replace(day=10)
+    )
+    repo.set_result(
+        "stale", status="active", last_post_date=date(2026, 8, 1), checked_at=now.replace(month=6)
+    )
     repo.set_result("unfollowed_by_her", status="inactive", checked_at=now.replace(day=10))
     repo.apply_default_selection()
     repo.set_selected(["recent"], False)  # the user unticked it earlier
@@ -209,12 +244,23 @@ async def test_refresh_scan_keeps_recent_rows_and_rechecks_stale_ones():
     )
     jobs = JobRepo(conn)
     job_row = jobs.create("scan", total=3, source="refresh")
-    job = ScanJob(job_row.id, conn, driver, Settings(rescan_after_days=30),
-                  Pacer(Settings(), sleep=no_sleep), ProgressBus(), now=lambda: now,
-                  today=lambda: now.date(), refresh=True)
+    job = ScanJob(
+        job_row.id,
+        conn,
+        driver,
+        Settings(rescan_after_days=30),
+        Pacer(Settings(), sleep=no_sleep),
+        ProgressBus(),
+        now=lambda: now,
+        today=lambda: now.date(),
+        refresh=True,
+    )
     await job.run()
 
-    assert [c for c in driver.calls if c[0] == "inspect"] == [("inspect", "newbie"), ("inspect", "stale")]
+    assert [c for c in driver.calls if c[0] == "inspect"] == [
+        ("inspect", "newbie"),
+        ("inspect", "stale"),
+    ]
     assert repo.get("unfollowed_by_her") is None
     assert repo.get("recent").selected is False and repo.get("recent").status == "inactive"
     assert repo.get("stale").status == "inactive" and repo.get("stale").selected is True
@@ -302,7 +348,9 @@ async def test_pause_while_listing_stops_and_resume_relists():
 async def test_listing_that_dies_partway_is_redone_on_resume():
     conn = connect(":memory:")
     names = [(f"u{i}", "") for i in range(250)]
-    driver = FailingListDriver(following=names, profiles={n: Gone() for n, _ in names}, fail_after=150)
+    driver = FailingListDriver(
+        following=names, profiles={n: Gone() for n, _ in names}, fail_after=150
+    )
     job = scan_job(conn, driver)
     await job.run()
     assert JobRepo(conn).get(job.job_id).state == "failed"

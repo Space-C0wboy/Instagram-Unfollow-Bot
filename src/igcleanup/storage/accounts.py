@@ -1,7 +1,7 @@
 import sqlite3
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Iterable
 
 PROFILE_URL = "https://www.instagram.com/{username}/"
 DEFAULT_SELECTED_STATUSES = ("inactive", "gone")
@@ -56,9 +56,15 @@ class AccountRepo:
         return [r["username"] for r in rows]
 
     def set_result(
-        self, username: str, *, status: str, post_count: int | None = None,
-        last_post_date: date | None = None, profile_pic_url: str | None = None,
-        display_name: str | None = None, checked_at: datetime,
+        self,
+        username: str,
+        *,
+        status: str,
+        post_count: int | None = None,
+        last_post_date: date | None = None,
+        profile_pic_url: str | None = None,
+        display_name: str | None = None,
+        checked_at: datetime,
     ) -> None:
         with self.conn:
             self.conn.execute(
@@ -66,8 +72,15 @@ class AccountRepo:
                    profile_pic_url = COALESCE(?, profile_pic_url),
                    display_name = COALESCE(?, display_name), checked_at = ?
                    WHERE username = ?""",
-                (status, post_count, last_post_date.isoformat() if last_post_date else None,
-                 profile_pic_url, display_name, checked_at.isoformat(), username),
+                (
+                    status,
+                    post_count,
+                    last_post_date.isoformat() if last_post_date else None,
+                    profile_pic_url,
+                    display_name,
+                    checked_at.isoformat(),
+                    username,
+                ),
             )
 
     def set_pending(self, username: str) -> None:
@@ -105,7 +118,11 @@ class AccountRepo:
         after that moment, so ticks the user changed on older rows are left alone."""
         placeholders = ",".join("?" for _ in DEFAULT_SELECTED_STATUSES)
         where = " WHERE checked_at >= ?" if since is not None else ""
-        params = (*DEFAULT_SELECTED_STATUSES, since.isoformat()) if since is not None else DEFAULT_SELECTED_STATUSES
+        params = (
+            (*DEFAULT_SELECTED_STATUSES, since.isoformat())
+            if since is not None
+            else DEFAULT_SELECTED_STATUSES
+        )
         with self.conn:
             self.conn.execute(
                 f"UPDATE accounts SET selected = CASE WHEN status IN ({placeholders}) "
@@ -126,14 +143,19 @@ class AccountRepo:
     def remove_not_in(self, usernames: Iterable[str]) -> int:
         """Drop rows for accounts the user no longer follows (they are absent from a fresh listing)."""
         keep = set(usernames)
-        gone = [r["username"] for r in self.conn.execute("SELECT username FROM accounts").fetchall()
-                if r["username"] not in keep]
+        gone = [
+            r["username"]
+            for r in self.conn.execute("SELECT username FROM accounts").fetchall()
+            if r["username"] not in keep
+        ]
         with self.conn:
             self.conn.executemany("DELETE FROM accounts WHERE username = ?", [(u,) for u in gone])
         return len(gone)
 
     def unchecked_count(self) -> int:
-        return self.conn.execute("SELECT COUNT(*) FROM accounts WHERE status = 'pending'").fetchone()[0]
+        return self.conn.execute(
+            "SELECT COUNT(*) FROM accounts WHERE status = 'pending'"
+        ).fetchone()[0]
 
     def reset_all(self) -> None:
         """Start over completely: results and the keep list."""
@@ -152,7 +174,8 @@ class AccountRepo:
         """Still ticked, not kept, not already unfollowed: re-checked right before each unfollow."""
         row = self.conn.execute(
             "SELECT 1 FROM accounts WHERE username = ? AND selected = 1 AND unfollowed_at IS NULL "
-            "AND status != 'active' AND username NOT IN (SELECT username FROM kept)", (username,)
+            "AND status != 'active' AND username NOT IN (SELECT username FROM kept)",
+            (username,),
         ).fetchone()
         return row is not None
 
@@ -160,8 +183,10 @@ class AccountRepo:
     # deletes and rebuilds the accounts table.
     def keep(self, username: str, at: datetime) -> None:
         with self.conn:
-            self.conn.execute("INSERT OR IGNORE INTO kept (username, at) VALUES (?, ?)",
-                              (username, at.isoformat()))
+            self.conn.execute(
+                "INSERT OR IGNORE INTO kept (username, at) VALUES (?, ?)",
+                (username, at.isoformat()),
+            )
             self.conn.execute("UPDATE accounts SET selected = 0 WHERE username = ?", (username,))
 
     def unkeep(self, username: str) -> None:
@@ -170,7 +195,9 @@ class AccountRepo:
             self.conn.execute("DELETE FROM kept WHERE username = ?", (username,))
             self.conn.execute(
                 f"UPDATE accounts SET selected = CASE WHEN status IN ({placeholders}) THEN 1 ELSE 0 END "
-                "WHERE username = ?", (*DEFAULT_SELECTED_STATUSES, username))
+                "WHERE username = ?",
+                (*DEFAULT_SELECTED_STATUSES, username),
+            )
 
     def kept_usernames(self) -> set[str]:
         return {r["username"] for r in self.conn.execute("SELECT username FROM kept").fetchall()}

@@ -1,7 +1,7 @@
 import contextlib
+from collections.abc import Callable
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Callable
 
 from igcleanup.driver.types import Gone, NeverPosted, PageLoadError, ParseError, Posted
 from igcleanup.jobs.engine import MSG_CONNECTION, MSG_LAYOUT, BaseJob, months_ago
@@ -12,8 +12,14 @@ UPSERT_BATCH = 100
 
 
 class ScanJob(BaseJob):
-    def __init__(self, *args, today: Callable[[], date] = date.today,
-                 avatars_dir: Path | None = None, refresh: bool = False, **kwargs):
+    def __init__(
+        self,
+        *args,
+        today: Callable[[], date] = date.today,
+        avatars_dir: Path | None = None,
+        refresh: bool = False,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.today = today
         self.avatars_dir = avatars_dir
@@ -46,8 +52,11 @@ class ScanJob(BaseJob):
                 if len(batch) >= UPSERT_BATCH:
                     self.accounts.upsert_following(batch)
                     batch = []
-                    self.set_state("running", total=self.accounts.count(),
-                                   message=f"Reading your Following list: {len(listed):,} found so far")
+                    self.set_state(
+                        "running",
+                        total=self.accounts.count(),
+                        message=f"Reading your Following list: {len(listed):,} found so far",
+                    )
         if batch:
             self.accounts.upsert_following(batch)
         self.meta.delete("listing_incomplete")
@@ -63,8 +72,11 @@ class ScanJob(BaseJob):
         await self.ensure_same_account()
         started = self.now()
         already_listed = self.refresh and self.meta.get("refresh_listed") == str(self.job_id)
-        if (self.accounts.count() == 0 or (self.refresh and not already_listed)
-                or self.meta.get("listing_incomplete")):
+        if (
+            self.accounts.count() == 0
+            or (self.refresh and not already_listed)
+            or self.meta.get("listing_incomplete")
+        ):
             if await self._collect_following():
                 return
             warning = getattr(self.driver, "following_warning", None)
@@ -103,8 +115,14 @@ class ScanJob(BaseJob):
                 load_errors = parse_errors = 0
                 pic = await self._cache_avatar(username, getattr(result, "profile_pic_url", None))
                 self._record(username, result, threshold, pic)
-                self.log_action(f"checked @{username}: {self.accounts.get(username).status}"
-                                + (f" (last post {result.last_post_date})" if isinstance(result, Posted) else ""))
+                self.log_action(
+                    f"checked @{username}: {self.accounts.get(username).status}"
+                    + (
+                        f" (last post {result.last_post_date})"
+                        if isinstance(result, Posted)
+                        else ""
+                    )
+                )
 
             done += 1
             visited += 1
@@ -112,28 +130,44 @@ class ScanJob(BaseJob):
             await self.pacer.after_profile(visited)
 
         if self.accounts.pending_usernames():
-            self.set_state("paused", message=MSG_CONNECTION,
-                           done=self.accounts.count() - len(self.accounts.pending_usernames()))
+            self.set_state(
+                "paused",
+                message=MSG_CONNECTION,
+                done=self.accounts.count() - len(self.accounts.pending_usernames()),
+            )
             return
 
         # Only rows checked in this run get their default tick; the user's earlier choices stand.
         self.accounts.apply_default_selection(since=started)
-        self.set_state("done", done=self.accounts.count() - len(self.accounts.pending_usernames()),
-                       message=self.meta.get("scan_warning"))
+        self.set_state(
+            "done",
+            done=self.accounts.count() - len(self.accounts.pending_usernames()),
+            message=self.meta.get("scan_warning"),
+        )
 
     def _record(self, username: str, result, threshold: date, pic: str | None = None) -> None:
         now = self.now()
         if isinstance(result, Gone):
             self.accounts.set_result(username, status="gone", checked_at=now)
         elif isinstance(result, NeverPosted):
-            self.accounts.set_result(username, status="never_posted", post_count=0,
-                                     profile_pic_url=pic,
-                                     display_name=result.display_name, checked_at=now)
+            self.accounts.set_result(
+                username,
+                status="never_posted",
+                post_count=0,
+                profile_pic_url=pic,
+                display_name=result.display_name,
+                checked_at=now,
+            )
         elif isinstance(result, Posted):
             status = "inactive" if result.last_post_date < threshold else "active"
-            self.accounts.set_result(username, status=status, post_count=result.post_count,
-                                     last_post_date=result.last_post_date,
-                                     profile_pic_url=pic,
-                                     display_name=result.display_name, checked_at=now)
+            self.accounts.set_result(
+                username,
+                status=status,
+                post_count=result.post_count,
+                last_post_date=result.last_post_date,
+                profile_pic_url=pic,
+                display_name=result.display_name,
+                checked_at=now,
+            )
         else:
             raise TypeError(f"Unexpected profile result: {result!r}")

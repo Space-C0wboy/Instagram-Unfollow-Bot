@@ -28,8 +28,11 @@ def test_set_result_and_set_pending(conn):
     repo = AccountRepo(conn)
     repo.upsert_following([("alice", "Alice")])
     repo.set_result(
-        "alice", status="inactive", post_count=10,
-        last_post_date=date(2024, 1, 1), profile_pic_url="http://x/p.jpg",
+        "alice",
+        status="inactive",
+        post_count=10,
+        last_post_date=date(2024, 1, 1),
+        profile_pic_url="http://x/p.jpg",
         checked_at=datetime(2026, 1, 1),
     )
     a = repo.get("alice")
@@ -169,9 +172,11 @@ def test_rebucket_clears_ticks_that_become_active(conn):
 
 def test_meta_repo(conn):
     from igcleanup.storage.meta import MetaRepo
+
     m = MetaRepo(conn)
     assert m.get("owner") is None
-    m.set("owner", "first"); m.set("owner", "second")
+    m.set("owner", "first")
+    m.set("owner", "second")
     assert m.get("owner") == "second"
     m.delete("owner")
     assert m.get("owner") is None

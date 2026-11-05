@@ -14,8 +14,8 @@ import uvicorn  # noqa: E402
 from igcleanup.driver.playwright_driver import PlaywrightDriver  # noqa: E402
 from igcleanup.driver.types import DriverError  # noqa: E402
 from igcleanup.jobs.engine import JobRunner  # noqa: E402
-from igcleanup.notify import desktop_notify  # noqa: E402
 from igcleanup.jobs.progress import ProgressBus  # noqa: E402
+from igcleanup.notify import desktop_notify  # noqa: E402
 from igcleanup.settings import load_settings  # noqa: E402
 from igcleanup.storage.db import connect  # noqa: E402
 from igcleanup.storage.jobs import JobRepo  # noqa: E402
@@ -47,8 +47,13 @@ def single_instance() -> socket.socket | None:
 def already_running_message() -> None:
     try:
         import ctypes
-        ctypes.windll.user32.MessageBoxW(0, "Instagram Cleanup is already running. Look for its window.",
-                                        "Instagram Cleanup", 0x40)
+
+        ctypes.windll.user32.MessageBoxW(
+            0,
+            "Instagram Cleanup is already running. Look for its window.",
+            "Instagram Cleanup",
+            0x40,
+        )
     except Exception:  # noqa: BLE001 - not Windows, or no desktop: fall back to text
         print("Instagram Cleanup is already running.")
 
@@ -56,6 +61,7 @@ def already_running_message() -> None:
 def screen_size() -> tuple[int, int]:
     try:
         import ctypes
+
         user32 = ctypes.windll.user32
         return int(user32.GetSystemMetrics(0)), int(user32.GetSystemMetrics(1))
     except Exception:  # noqa: BLE001
@@ -71,7 +77,12 @@ def window_layout() -> dict:
         ui_x = 20 + ig_w + 20
     else:
         ui_x = max(0, w - ui_w - 20)
-    return {"ig_size": (ig_w, ig_h), "ig_pos": (20, 40), "ui_size": (ui_w, ui_h), "ui_pos": (ui_x, 20)}
+    return {
+        "ig_size": (ig_w, ig_h),
+        "ig_pos": (20, 40),
+        "ui_size": (ui_w, ui_h),
+        "ui_pos": (ui_x, 20),
+    }
 
 
 def free_port() -> int:
@@ -84,10 +95,15 @@ async def open_ui_window(driver: PlaywrightDriver, base: Path, url: str, layout:
     """Returns the UI browser context, or None if we fell back to the default browser."""
     try:
         ctx = await driver.playwright.chromium.launch_persistent_context(
-            str(base / "ui-profile"), headless=False, no_viewport=True,
+            str(base / "ui-profile"),
+            headless=False,
+            no_viewport=True,
             # Sit to the right of the Instagram window instead of on top of it.
-            args=[f"--app={url}", "--window-size={},{}".format(*layout["ui_size"]),
-                  "--window-position={},{}".format(*layout["ui_pos"])],
+            args=[
+                f"--app={url}",
+                "--window-size={},{}".format(*layout["ui_size"]),
+                "--window-position={},{}".format(*layout["ui_pos"]),
+            ],
             ignore_default_args=["--enable-automation"],
         )
         return ctx
@@ -102,21 +118,39 @@ async def run(base: Path) -> None:
     conn = connect(base / "data.db")
     JobRepo(conn).pause_stale_running()
     layout = window_layout()
-    driver = PlaywrightDriver(base / "browser-profile", viewport=layout["ig_size"], position=layout["ig_pos"])
+    driver = PlaywrightDriver(
+        base / "browser-profile", viewport=layout["ig_size"], position=layout["ig_pos"]
+    )
     await driver.start()
     try:
-        ctx = AppContext(conn=conn, driver=driver, settings_path=base / "settings.json",
-                         settings=settings, backups_dir=base / "backups",
-                         runner=JobRunner(), bus=ProgressBus(), avatars_dir=base / "avatars",
-                         notifier=desktop_notify, activity_log=base / "activity.log")
+        ctx = AppContext(
+            conn=conn,
+            driver=driver,
+            settings_path=base / "settings.json",
+            settings=settings,
+            backups_dir=base / "backups",
+            runner=JobRunner(),
+            bus=ProgressBus(),
+            avatars_dir=base / "avatars",
+            notifier=desktop_notify,
+            activity_log=base / "activity.log",
+        )
 
         closed = asyncio.Event()
         ctx.on_quit = closed.set  # the terms screen's Decline button ends the app
         driver.context.on("close", lambda *_: closed.set())
 
         port = free_port()
-        server = uvicorn.Server(uvicorn.Config(create_app(ctx), host="127.0.0.1", port=port, log_level="warning",
-                                                log_config=None, timeout_graceful_shutdown=3))
+        server = uvicorn.Server(
+            uvicorn.Config(
+                create_app(ctx),
+                host="127.0.0.1",
+                port=port,
+                log_level="warning",
+                log_config=None,
+                timeout_graceful_shutdown=3,
+            )
+        )
 
         async def _serve_guarded() -> None:
             # uvicorn calls sys.exit() internally on a bind failure; a bare SystemExit
@@ -175,7 +209,7 @@ async def run(base: Path) -> None:
             ctx.runner.request_pause()
             try:
                 await asyncio.wait_for(ctx.runner.wait(), timeout=15)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
+            except (TimeoutError, asyncio.CancelledError):
                 pass
             for t in tasks:
                 t.cancel()
@@ -197,8 +231,11 @@ def main() -> None:
         log_file = open(base_dir() / "igcleanup.log", "a", encoding="utf-8")
         sys.stdout = log_file
         sys.stderr = log_file
-        logging.basicConfig(level=logging.INFO, stream=sys.stderr,
-                             format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+        logging.basicConfig(
+            level=logging.INFO,
+            stream=sys.stderr,
+            format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        )
     asyncio.run(run(base_dir()))
 
 

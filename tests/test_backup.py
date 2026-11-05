@@ -8,17 +8,24 @@ from igcleanup.storage.backup import list_backups, read_backup, write_backup
 
 def _acct(username, status="inactive", last=date(2024, 5, 1)):
     return Account(
-        username=username, display_name=f"Name {username}",
+        username=username,
+        display_name=f"Name {username}",
         profile_url=f"https://www.instagram.com/{username}/",
-        profile_pic_url=None, post_count=1, last_post_date=last, status=status,
-        checked_at=None, selected=True, unfollowed_at=None,
+        profile_pic_url=None,
+        post_count=1,
+        last_post_date=last,
+        status=status,
+        checked_at=None,
+        selected=True,
+        unfollowed_at=None,
     )
 
 
 def test_write_names_file_by_timestamp_and_round_trips(tmp_path: Path):
     backups = tmp_path / "backups"
-    path = write_backup(backups, [_acct("alice"), _acct("bob", "gone", None)],
-                        now=datetime(2026, 9, 14, 18, 30))
+    path = write_backup(
+        backups, [_acct("alice"), _acct("bob", "gone", None)], now=datetime(2026, 9, 14, 18, 30)
+    )
     assert path.name == "unfollow-backup-2026-09-14-1830.csv"
     text = path.read_text(encoding="utf-8-sig")
     assert text.splitlines()[0] == "username,profile_url,display_name,last_post_date,status"
@@ -45,30 +52,44 @@ def test_list_backups_when_folder_missing(tmp_path: Path):
 def test_write_backup_utf8_sig_encoding_with_special_chars(tmp_path: Path):
     backups = tmp_path / "backups"
     acct = Account(
-        username="alice", display_name='Zoë "Z", ✨',
+        username="alice",
+        display_name='Zoë "Z", ✨',
         profile_url="https://www.instagram.com/alice/",
-        profile_pic_url=None, post_count=1, last_post_date=date(2024, 5, 1),
-        status="inactive", checked_at=None, selected=True, unfollowed_at=None,
+        profile_pic_url=None,
+        post_count=1,
+        last_post_date=date(2024, 5, 1),
+        status="inactive",
+        checked_at=None,
+        selected=True,
+        unfollowed_at=None,
     )
     path = write_backup(backups, [acct], now=datetime(2026, 9, 14, 18, 30))
 
     # Verify file starts with UTF-8 BOM
     file_bytes = path.read_bytes()
-    assert file_bytes[:3] == b'\xef\xbb\xbf', "File should start with UTF-8 BOM"
+    assert file_bytes[:3] == b"\xef\xbb\xbf", "File should start with UTF-8 BOM"
 
     # Verify round-trip preserves username and display name
     rows = read_backup(path)
     assert rows[0].username == "alice", "Username should not include BOM character"
-    assert rows[0].display_name == 'Zoë "Z", ✨', "Display name with special chars should be preserved"
+    assert rows[0].display_name == 'Zoë "Z", ✨', (
+        "Display name with special chars should be preserved"
+    )
 
 
 def test_write_backup_escapes_formula_injection(tmp_path: Path):
     backups = tmp_path / "backups"
     acct = Account(
-        username="alice", display_name='=HYPERLINK("x")',
+        username="alice",
+        display_name='=HYPERLINK("x")',
         profile_url="https://www.instagram.com/alice/",
-        profile_pic_url=None, post_count=1, last_post_date=date(2024, 5, 1),
-        status="inactive", checked_at=None, selected=True, unfollowed_at=None,
+        profile_pic_url=None,
+        post_count=1,
+        last_post_date=date(2024, 5, 1),
+        status="inactive",
+        checked_at=None,
+        selected=True,
+        unfollowed_at=None,
     )
     path = write_backup(backups, [acct], now=datetime(2026, 9, 14, 18, 30))
 

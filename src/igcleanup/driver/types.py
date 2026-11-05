@@ -1,6 +1,7 @@
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import date
-from typing import AsyncIterator, Protocol
+from typing import Protocol
 
 
 @dataclass(frozen=True)

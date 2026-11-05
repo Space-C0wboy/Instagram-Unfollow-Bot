@@ -1,6 +1,6 @@
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
-from typing import Callable
 
 from igcleanup.driver.types import ActionFailed, PageLoadError, ParseError
 from igcleanup.jobs.engine import MSG_CONNECTION, MSG_DONE_TODAY, BaseJob
@@ -10,8 +10,9 @@ from igcleanup.storage.jobs import Job, JobRepo
 MAX_CONSECUTIVE_LOAD_ERRORS = 3
 
 
-def prepare_restore(conn, backup_path: Path, now: Callable[[], datetime],
-                    usernames: list[str] | None = None) -> Job:
+def prepare_restore(
+    conn, backup_path: Path, now: Callable[[], datetime], usernames: list[str] | None = None
+) -> Job:
     """Create a restore job for every row of the backup, or only `usernames` if given.
 
     A selection is written to its own file beside the backup so a resumed job still
@@ -26,13 +27,11 @@ def prepare_restore(conn, backup_path: Path, now: Callable[[], datetime],
             raise ValueError("Nothing selected")
         source = backup_path.parent / f"restore-selection-{now():%Y-%m-%d-%H%M%S}.csv"
         write_rows(source, rows)
-    return JobRepo(conn).create("restore", total=len(rows), started_at=now(),
-                                source=str(source))
+    return JobRepo(conn).create("restore", total=len(rows), started_at=now(), source=str(source))
 
 
 class RestoreJob(BaseJob):
-    def __init__(self, *args, backup_path: Path, today: Callable[[], date] = date.today,
-                 **kwargs):
+    def __init__(self, *args, backup_path: Path, today: Callable[[], date] = date.today, **kwargs):
         super().__init__(*args, **kwargs)
         self.backup_path = backup_path
         self.today = today
@@ -62,8 +61,9 @@ class RestoreJob(BaseJob):
                 return
             await self.pacer.before_action(
                 self._seconds_since_last_action(),
-                on_wait=lambda secs: self.set_state(
-                    "running", done=done, message=f"Next follow in about {round(secs)} seconds"),
+                on_wait=lambda secs, done=done: self.set_state(
+                    "running", done=done, message=f"Next follow in about {round(secs)} seconds"
+                ),
             )
             self.set_state("running", done=done, message=None)
             try:
@@ -85,8 +85,9 @@ class RestoreJob(BaseJob):
             self.set_state("running", done=done, current=row.username)
 
         recorded = self.events.usernames_for_job(self.job_id)
-        skipped = [r.username for r in rows if r.username not in recorded
-                   and r.username not in self.failed]
+        skipped = [
+            r.username for r in rows if r.username not in recorded and r.username not in self.failed
+        ]
         if skipped:
             self.set_state("paused", message=MSG_CONNECTION, done=done)
             return

@@ -88,9 +88,13 @@ def parse_profile(html: str) -> ProfileHeader:
         if idx != -1:
             display_name = title_content[:idx]
 
-    return ProfileHeader(post_count=post_count, profile_pic_url=pic,
-                         first_unpinned_post_href=first_href, display_name=display_name,
-                         pinned_post_hrefs=tuple(pinned))
+    return ProfileHeader(
+        post_count=post_count,
+        profile_pic_url=pic,
+        first_unpinned_post_href=first_href,
+        display_name=display_name,
+        pinned_post_hrefs=tuple(pinned),
+    )
 
 
 def parse_following_count(html: str) -> int:

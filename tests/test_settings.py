@@ -1,7 +1,7 @@
 import json
+from pathlib import Path
 
 import pytest
-from pathlib import Path
 
 from igcleanup.settings import Settings, load_settings, save_settings
 
@@ -48,6 +48,7 @@ def test_corrupt_settings_file_falls_back_to_defaults(tmp_path: Path):
 
 def test_speed_presets_apply_and_round_trip(tmp_path: Path):
     from igcleanup.settings import with_speed
+
     s = with_speed(Settings(), "fastest")
     assert s.speed == "fastest" and s.action_delay_seconds == (8, 20) and s.scan_rest_every == 80
     path = tmp_path / "settings.json"

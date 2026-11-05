@@ -21,18 +21,31 @@ _TUPLE_FIELDS = {"scan_delay_seconds", "scan_rest_seconds", "action_delay_second
 # How long the tool waits, per preset. "careful" is the default and the only one that is
 # not accompanied by a warning in the UI.
 SPEED_PRESETS = {
-    "careful": {"scan_delay_seconds": (3, 7), "scan_rest_every": 50, "scan_rest_seconds": (120, 240),
-                "action_delay_seconds": (30, 90)},
-    "faster": {"scan_delay_seconds": (2, 4), "scan_rest_every": 60, "scan_rest_seconds": (60, 120),
-               "action_delay_seconds": (15, 45)},
-    "fastest": {"scan_delay_seconds": (1, 2), "scan_rest_every": 80, "scan_rest_seconds": (30, 60),
-                "action_delay_seconds": (8, 20)},
+    "careful": {
+        "scan_delay_seconds": (3, 7),
+        "scan_rest_every": 50,
+        "scan_rest_seconds": (120, 240),
+        "action_delay_seconds": (30, 90),
+    },
+    "faster": {
+        "scan_delay_seconds": (2, 4),
+        "scan_rest_every": 60,
+        "scan_rest_seconds": (60, 120),
+        "action_delay_seconds": (15, 45),
+    },
+    "fastest": {
+        "scan_delay_seconds": (1, 2),
+        "scan_rest_every": 80,
+        "scan_rest_seconds": (30, 60),
+        "action_delay_seconds": (8, 20),
+    },
 }
 
 
 def with_speed(settings: "Settings", speed: str) -> "Settings":
     """Return settings with the pacing fields set from a preset."""
     from dataclasses import replace
+
     if speed not in SPEED_PRESETS:
         raise ValueError(f"unknown speed {speed!r}")
     return replace(settings, speed=speed, **SPEED_PRESETS[speed])
