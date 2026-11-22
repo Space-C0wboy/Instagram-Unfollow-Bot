@@ -3,9 +3,9 @@ name = "igcleanup"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
-    "playwright>=1.64.1",
+    "playwright>=1.65.2",
     "beautifulsoup4>=4.15.0",
-    "fastapi>=0.162.0",
+    "fastapi>=0.163.1",
     "uvicorn>=0.54.0",
     "winotify>=1.1; sys_platform == 'win32'",
 ]
@@ -14,8 +14,8 @@ dependencies = [
 igcleanup = "igcleanup.main:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=9.2.0", "pytest-asyncio>=1.4.1.post1", "httpx>=0.28.1", "pyinstaller>=6.22.3", "pillow>=13.0.0",
-       "ruff==0.17.3"]  # pinned: new ruff releases add rules and would turn CI red unannounced
+dev = ["pytest>=9.2.0", "pytest-asyncio>=1.5.0", "httpx>=0.28.1", "pyinstaller>=6.22.3", "pillow>=13.0.0",
+       "ruff==0.17.5"]  # pinned: new ruff releases add rules and would turn CI red unannounced
 
 [build-system]
 requires = ["setuptools>=84.2.1"]
